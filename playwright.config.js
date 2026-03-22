@@ -19,7 +19,9 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : 3,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: process.env.CI ? 'json' : 'html',
+  reporter: process.env.CI
+    ? [['json'], ['./reporters/four-line-summary-reporter.js']]
+    : [['html', { open: 'never' }], ['./reporters/four-line-summary-reporter.js']],
   /* Global timeout for each test */
   timeout: parseInt(process.env.TIMEOUT || '60000'),
   /* Global timeout for expect assertions */
@@ -33,7 +35,7 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    screenshot: 'on',
     video: process.env.CI ? 'off' : 'retain-on-failure',
     headless: process.env.HEADLESS !== 'false',
   },
@@ -83,4 +85,3 @@ export default defineConfig({
   //   reuseExistingServer: !process.env.CI,
   // },
 });
-

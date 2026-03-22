@@ -165,7 +165,7 @@ npx playwright test --reporter=json
 ```
 
 ### Screenshots & Videos
-- **Screenshots**: `test-results/` (on failure)
+- **Screenshots**: Captured for every test and embedded in the localhost HTML report.
 - **Videos**: `test-results/` (on failure, if enabled)
 - **Traces**: Available in HTML report
 
@@ -218,7 +218,8 @@ npx playwright test --workers=4 --reporter=line
 - Environment configuration
 - Comprehensive error handling
 - Parallel test execution
-- Automatic screenshots/videos on failure
+- Automatic screenshots for every test in the localhost HTML report
+- Automatic failure videos where enabled
 
 ### 🚀 Recommendations
 - Add Page Object Model for complex UIs
