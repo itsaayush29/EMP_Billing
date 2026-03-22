@@ -20,8 +20,8 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 3,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: process.env.CI
-    ? [['json'], ['./reporters/four-line-summary-reporter.js']]
-    : [['html', { open: 'never' }], ['./reporters/four-line-summary-reporter.js']],
+    ? [['line'], ['json']]
+    : [['list'], ['html', { open: 'never' }]],
   /* Global timeout for each test */
   timeout: parseInt(process.env.TIMEOUT || '60000'),
   /* Global timeout for expect assertions */
