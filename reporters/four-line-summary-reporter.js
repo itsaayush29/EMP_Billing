@@ -30,15 +30,23 @@ class FourLineSummaryReporter {
       }
     }
 
-    const scopeLabel = this.totalTests === 1 ? 'single test' : 'test run';
+    const executedCount = counts.passed + counts.failed + counts.flaky + counts.timedOut + counts.interrupted;
     const filesPreview = this.fileNames.length
       ? this.fileNames.slice(0, 3).join(', ') + (this.fileNames.length > 3 ? ', ...' : '')
       : 'no test files discovered';
+    const overallLabel = executedCount === 0
+      ? 'NO TESTS EXECUTED'
+      : result.status.toUpperCase();
+    const overallNote = executedCount === 0
+      ? ' (check the file path, testMatch filters, project selection, and setup dependencies)'
+      : result.status === 'passed'
+        ? ' (screenshots included in the localhost HTML report)'
+        : ' (see localhost HTML report for screenshots and failure details)';
 
-    console.log(`Summary 1/4: Executed ${scopeLabel} with ${this.totalTests} test(s) across ${this.fileNames.length} file(s): ${filesPreview}`);
+    console.log(`Summary 1/4: Discovered ${this.totalTests} test(s) across ${this.fileNames.length} file(s); executed ${executedCount}: ${filesPreview}`);
     console.log(`Summary 2/4: Result counts -> passed: ${counts.passed}, failed: ${counts.failed}, flaky: ${counts.flaky}, skipped: ${counts.skipped}`);
     console.log(`Summary 3/4: Additional outcomes -> timed out: ${counts.timedOut}, interrupted: ${counts.interrupted}, duration: ${(durationMs / 1000).toFixed(2)}s`);
-    console.log(`Summary 4/4: Overall result -> ${result.status.toUpperCase()}${result.status === 'passed' ? ' (screenshots included in the localhost HTML report)' : ' (see localhost HTML report for screenshots and failure details)'}`);
+    console.log(`Summary 4/4: Overall result -> ${overallLabel}${overallNote}`);
   }
 }
 
