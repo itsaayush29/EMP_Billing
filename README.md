@@ -6,17 +6,15 @@ Automated testing suite for the EMP Billing invoice management system using Play
 
 ```
 tests/
-├── invoice/                          # Invoice module tests
-│   ├── Create_invoice.spec.js                    # Happy path
-│   ├── Create_invoice_minimum.spec.js           # Minimum fields
-│   ├── Create_invoice_multiple_items.spec.js    # Multiple items
-│   ├── Create_invoice_past_due.spec.js          # Past due dates
-│   ├── Create_invoice_high_value.spec.js        # High value transactions
-│   ├── Create_invoice_validation.spec.js        # Validation scenarios
-│   └── Create_invoice_improved.spec.js          # Enhanced version with better error handling
-├── test-data/                       # Test data and fixtures
-│   ├── invoice-data.js                          # Original data
-│   └── invoice-scenarios.js                     # Comprehensive scenarios
+├── invoice/                         # Invoice module tests
+│   ├── Create_invoice_improved.spec.js          # Enhanced invoice flow
+│   └── Create_invoice_multiple_items.spec.js    # Multiple line items flow
+├── Vendor_module/                   # Vendor module tests
+│   └── Create_vendor.spec.js                    # Vendor creation flow
+├── test-data/                       # Shared test data and fixtures
+│   ├── invoice-data.js                          # Invoice data set
+│   ├── invoice-scenarios.js                     # Invoice scenario variants
+│   └── vendor-data.js                           # Vendor module data set
 └── health-check.spec.js             # Application health check
 ```
 
@@ -33,11 +31,16 @@ npm run install:browsers
 ```
 
 ### Environment Setup
-1. Copy `.env` file and configure your environment:
+1. Create or update your `.env` file:
 ```bash
-# Edit .env file
 BASE_URL=https://your-test-environment.com
+ADMIN_EMAIL=admin@acme.com
+ADMIN_PASSWORD=your-password
+TIMEOUT=60000
+HEADLESS=true
 ```
+
+> The vendor flow follows the invoice login pattern and reads the password from `ADMIN_PASSWORD`.
 
 ## 🧪 Running Tests
 
@@ -49,6 +52,11 @@ npm test
 ### Invoice Module Only
 ```bash
 npm run test:invoice
+```
+
+### Vendor Module Only
+```bash
+npx playwright test tests/Vendor_module/
 ```
 
 ### Health Check (Verify App Accessibility)
