@@ -49,6 +49,8 @@ HEADLESS=true
 npm test
 ```
 
+> `.env` values are loaded automatically without the verbose dotenv banner, so test startup stays quiet.
+
 ### Invoice Module Only
 ```bash
 npm run test:invoice
@@ -99,7 +101,9 @@ ADMIN_PASSWORD=Admin@123
 - **Timeout**: 60 seconds per test
 - **Retries**: 1 in local, 2 in CI
 - **Parallel**: 3 workers locally, 1 in CI
-- **Browsers**: Chromium, Firefox, WebKit
+- **Browsers**: Chromium
+- **Environment loading**: `.env` is loaded quietly to avoid noisy startup logs
+- **Console summary**: a concise four-line run summary is printed after each local run
 
 ## 🐛 Troubleshooting
 

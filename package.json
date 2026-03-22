@@ -11,7 +11,7 @@
     "test:ui": "playwright test --ui",
     "test:smoke": "playwright test --grep @smoke",
     "report": "playwright show-report",
-    "install:browsers": "playwright install",
+    "install:browsers": "playwright install chromium",
     "test:ci": "playwright test --project=chromium --reporter=json"
   },
   "repository": {
