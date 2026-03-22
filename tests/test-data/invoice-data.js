@@ -1,16 +1,12 @@
 export const invoiceData = {
-  login: {
-    email: 'admin@acme.com',
-    password: 'Admin@123'
-  },
   invoice: {
     clientIndex: 1,
     issueDate: '2026-03-06',
     dueDate: '2026-04-07',
     currency: 'USD',
-    reference: 'dhfifois',
-    notes: 'ajsjs',
-    terms: 'djdj',
+    reference: 'DHFIFOIS',
+    notes: 'Optimized invoice creation flow',
+    terms: 'Payment due within 30 days',
     customField: {
       name: 'custom_field',
       value: '74'

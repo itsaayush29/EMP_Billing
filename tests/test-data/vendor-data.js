@@ -1,8 +1,4 @@
 export const vendorData = {
-  login: {
-    email: process.env.ADMIN_EMAIL || 'admin@acme.com',
-    password: process.env.ADMIN_PASSWORD || ''
-  },
   vendor: {
     name: 'Aayush',
     company: 'Globus',

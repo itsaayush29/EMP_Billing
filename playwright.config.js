@@ -1,43 +1,42 @@
 // @ts-check
-import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 
-const envFile = '.env';
-if (existsSync(envFile)) {
-  dotenv.config({ path: envFile, quiet: true });
-}
+dotenv.config({ quiet: true });
 
 const isCI = Boolean(process.env.CI);
 const timeout = Number.parseInt(process.env.TIMEOUT ?? '60000', 10);
 
-/**
- * @see https://playwright.dev/docs/test-configuration
- */
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 2 : 1,
-  workers: isCI ? 1 : 3,
+  retries: isCI ? 2 : 0,
+  workers: isCI ? 1 : 4,
   reporter: isCI
-    ? [['line'], ['json']]
-    : [['list'], ['html', { open: 'never' }], ['./reporters/four-line-summary-reporter.js']],
+    ? [['json'], ['./reporters/four-line-summary-reporter.js']]
+    : [['html', { open: 'never' }], ['./reporters/four-line-summary-reporter.js']],
   timeout: Number.isFinite(timeout) ? timeout : 60000,
   expect: {
-    timeout: 30000,
+    timeout: 10000,
   },
   use: {
     baseURL: process.env.BASE_URL || 'https://test-billing.empcloud.com',
     trace: 'on-first-retry',
-    screenshot: 'on',
-    video: isCI ? 'off' : 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    video: 'off',
     headless: process.env.HEADLESS !== 'false',
+    storageState: 'playwright/.auth/user.json',
   },
   projects: [
     {
+      name: 'setup',
+      testMatch: /.*\.setup\.js/,
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
   ],
 });

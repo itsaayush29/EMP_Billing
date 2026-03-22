@@ -1,9 +1,5 @@
 export const testScenarios = {
   multipleItems: {
-    login: {
-      email: 'admin@acme.com',
-      password: 'Admin@123'
-    },
     invoice: {
       clientIndex: 1,
       issueDate: '2026-03-06',
