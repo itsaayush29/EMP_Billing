@@ -1,38 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { vendorData } from '../test-data/vendor-data.js';
+import { loginToApplication, safeClick, safeFill, waitForPostResponse } from '../test-helpers.js';
 
 test('Vendor Creation Flow', async ({ page }) => {
   test.setTimeout(120000);
 
-  async function safeFill(locator, value, fieldName = 'field') {
-    await locator.waitFor({ state: 'visible', timeout: 30000 });
-    await locator.click();
-    await locator.fill(value);
-    console.log(`✅ Filled ${fieldName}: ${value}`);
-  }
-
-  async function safeClick(locator, elementName = 'element') {
-    await locator.waitFor({ state: 'visible', timeout: 30000 });
-    await locator.click();
-    console.log(`✅ Clicked ${elementName}`);
-  }
-
   console.log('🚀 Starting vendor creation test...');
 
-  await page.goto('/login');
-  await page.waitForLoadState('domcontentloaded');
-
-  const email = page.locator('input[type="email"], input[name="email"]').first();
-  const password = page.locator('input[type="password"]').first();
-
-  await expect(email).toBeVisible({ timeout: 30000 });
-
-  await safeFill(email, vendorData.login.email, 'email');
-  await safeFill(password, vendorData.login.password, 'password');
-
-  await safeClick(page.getByRole('button', { name: /sign in/i }), 'sign in button');
-  await expect(page).toHaveURL(/dashboard/, { timeout: 60000 });
-  console.log('✅ Logged in successfully');
+  await loginToApplication(page, vendorData.login);
 
   await safeClick(page.getByRole('link', { name: /vendors/i }), 'vendors link');
   await safeClick(page.getByRole('button', { name: /new vendor/i }).first(), 'new vendor button');
@@ -51,10 +26,7 @@ test('Vendor Creation Flow', async ({ page }) => {
   await safeFill(page.getByRole('textbox', { name: /^country$/i }), vendorData.vendor.country, 'country');
   await safeFill(page.getByRole('textbox', { name: /^notes$/i }), vendorData.vendor.notes, 'notes');
 
-  const responsePromise = page.waitForResponse(
-    response => response.url().includes('/vendors') && response.request().method() === 'POST',
-    { timeout: 30000 }
-  ).catch(() => null);
+  const responsePromise = waitForPostResponse(page, '/vendors');
 
   await safeClick(page.getByRole('button', { name: /create vendor/i }), 'create vendor button');
 
