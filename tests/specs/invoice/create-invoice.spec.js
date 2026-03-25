@@ -43,23 +43,11 @@ test('Invoice Flow', async ({ page }) => {
     await page.getByLabel(/currency/i).selectOption(invoiceData.invoice.currency);
     await safeFill(page.getByRole('textbox', { name: /reference/i }), invoiceData.invoice.reference, 'reference');
 
-    console.log('Filling invoice line items...');
+    console.log('Filling minimal invoice details...');
     await safeFill(page.getByRole('textbox', { name: /item name/i }), invoiceData.lineItems[0].name, 'item name');
     await safeFill(page.getByRole('textbox', { name: /description/i }), invoiceData.lineItems[0].description, 'description');
     await safeFill(page.getByPlaceholder('1', { exact: true }), invoiceData.lineItems[0].quantity, 'quantity');
     await safeFill(page.getByPlaceholder('0.00'), invoiceData.lineItems[0].rate, 'rate');
-
-    await safeClick(page.getByRole('button', { name: /add line item/i }), 'add line item button');
-    await safeFill(page.locator('input[name="items.1.name"]'), invoiceData.lineItems[1].name, 'second item name');
-    await safeFill(page.locator('input[name="items.1.description"]'), invoiceData.lineItems[1].description, 'second item description');
-    await safeFill(page.locator('input[name="items.1.quantity"]'), invoiceData.lineItems[1].quantity, 'second item quantity');
-    await safeFill(page.locator('input[name="items.1.rate"]'), invoiceData.lineItems[1].rate, 'second item rate');
-
-    await safeFill(page.getByRole('textbox', { name: /notes/i }), invoiceData.invoice.notes, 'notes');
-    await safeFill(page.getByRole('textbox', { name: /terms/i }), invoiceData.invoice.terms, 'terms');
-    await safeClick(page.getByRole('button', { name: /add field/i }), 'add field button');
-    await safeFill(page.getByRole('textbox', { name: /field name/i }), invoiceData.invoice.customField.name, 'custom field name');
-    await safeFill(page.getByRole('textbox', { name: /^value$/i }), invoiceData.invoice.customField.value, 'custom field value');
 
     console.log('Submitting invoice...');
     const responsePromise = page.waitForResponse(

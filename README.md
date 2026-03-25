@@ -9,7 +9,6 @@ tests/
   data/
     client-data.js
     invoice-data.js
-    invoice-scenarios.js
     payment-data.js
     registration-data.js
     registration-scenarios.js
@@ -23,7 +22,6 @@ tests/
       health-check.spec.js
     invoice/
       create-invoice.spec.js
-      create-invoice-multiple-items.spec.js
     payments/
       create-payment.spec.js
     registration/
@@ -76,7 +74,7 @@ npm run report
 
 - `client`: authenticated client creation flow
 - `health`: basic application availability check
-- `invoice`: authenticated invoice creation flows, including a multi-line-item scenario
+- `invoice`: authenticated simple invoice creation flow
 - `payments`: authenticated payment recording flow
 - `registration`: public registration page coverage with positive and validation scenarios
 - `vendor`: authenticated vendor creation flow

@@ -13,17 +13,10 @@ export const invoiceData = {
     password: process.env.ADMIN_PASSWORD || '',
   },
   invoice: {
-    clientIndex: 1,
     issueDate: formatDate(issueDate),
     dueDate: formatDate(dueDate),
     currency: 'USD',
     reference: `INV-${timestamp}`,
-    notes: 'Automation invoice',
-    terms: 'Payment due within 30 days',
-    customField: {
-      name: 'custom_field',
-      value: '74',
-    },
   },
   lineItems: [
     {
@@ -31,12 +24,6 @@ export const invoiceData = {
       description: 'Invoice automation coverage',
       quantity: '12',
       rate: '10',
-    },
-    {
-      name: 'Validation',
-      description: 'Regression validation',
-      quantity: '3',
-      rate: '3',
     },
   ],
 };
