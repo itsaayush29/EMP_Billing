@@ -1,29 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { paymentData } from '../../data/payment-data.js';
-import { safeClick, safeFill } from '../../utils/ui-helpers.js';
-
-async function selectFirstAvailableOption(selectLocator, placeholderPattern, fieldName) {
-  await expect(selectLocator).toBeVisible();
-
-  const options = await selectLocator.locator('option').evaluateAll((elements) =>
-    elements.map((option) => ({
-      value: option.value,
-      label: option.textContent?.trim() ?? '',
-      disabled: option.disabled,
-    }))
-  );
-
-  const selectedOption = options.find(
-    (option) => option.value && !option.disabled && !(placeholderPattern?.test(option.label) ?? false)
-  );
-
-  if (!selectedOption) {
-    throw new Error(`No selectable options were available for ${fieldName}.`);
-  }
-
-  await selectLocator.selectOption(selectedOption.value);
-  console.log(`Selected ${fieldName}: ${selectedOption.label}`);
-}
+import { safeClick, safeFill, selectFirstAvailableOption } from '../../utils/ui-helpers.js';
 
 test('Payments Module Flow', async ({ page }) => {
   test.setTimeout(120000);

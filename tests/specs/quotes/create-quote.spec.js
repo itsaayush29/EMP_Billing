@@ -1,27 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { quoteData } from '../../data/quote-data.js';
-import { safeClick, safeFill } from '../../utils/ui-helpers.js';
-
-async function selectFirstAvailableClient(page) {
-  const clientSelect = page.getByLabel(/client/i);
-  await expect(clientSelect).toBeVisible();
-
-  const options = await clientSelect.locator('option').evaluateAll((elements) =>
-    elements.map((option) => ({
-      value: option.value,
-      label: option.textContent?.trim() ?? '',
-      disabled: option.disabled,
-    }))
-  );
-
-  const selectedOption = options.find((option) => option.value && !option.disabled && !/select a client/i.test(option.label));
-  if (!selectedOption) {
-    throw new Error('No selectable client options were available in the quote form.');
-  }
-
-  await clientSelect.selectOption(selectedOption.value);
-  console.log(`Selected quote client: ${selectedOption.label}`);
-}
+import { safeClick, safeFill, selectFirstAvailableOption } from '../../utils/ui-helpers.js';
 
 test('Quote Creation Flow', async ({ page }) => {
   test.setTimeout(120000);
@@ -38,7 +17,7 @@ test('Quote Creation Flow', async ({ page }) => {
     await expect(page.getByRole('heading', { name: /new quote/i })).toBeVisible();
 
     console.log('Filling quote form...');
-    await selectFirstAvailableClient(page);
+    await selectFirstAvailableOption(page.getByLabel(/client/i), /select a client/i, 'quote client');
     await safeFill(page.getByRole('textbox', { name: /issue date/i }), quoteData.quote.issueDate, 'issue date');
     await safeFill(page.getByRole('textbox', { name: /expiry date/i }), quoteData.quote.expiryDate, 'expiry date');
     await page.getByLabel(/currency/i).selectOption(quoteData.quote.currency);

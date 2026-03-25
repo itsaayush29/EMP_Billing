@@ -24,6 +24,51 @@ export async function safeClick(locator, elementName = 'element') {
   }
 }
 
+export async function selectFirstAvailableOption(selectLocator, placeholderPattern, fieldName = 'field') {
+  await expect(selectLocator).toBeVisible();
+
+  await expect
+    .poll(
+      async () => {
+        const options = await selectLocator.locator('option').evaluateAll((elements) =>
+          elements.map((option) => ({
+            value: option.value,
+            label: option.textContent?.trim() ?? '',
+            disabled: option.disabled,
+          }))
+        );
+
+        return options.filter(
+          (option) => option.value && !option.disabled && !(placeholderPattern?.test(option.label) ?? false)
+        ).length;
+      },
+      {
+        timeout: 30000,
+        message: `Waiting for selectable options for ${fieldName}`,
+      }
+    )
+    .toBeGreaterThan(0);
+
+  const options = await selectLocator.locator('option').evaluateAll((elements) =>
+    elements.map((option) => ({
+      value: option.value,
+      label: option.textContent?.trim() ?? '',
+      disabled: option.disabled,
+    }))
+  );
+
+  const selectedOption = options.find(
+    (option) => option.value && !option.disabled && !(placeholderPattern?.test(option.label) ?? false)
+  );
+
+  if (!selectedOption) {
+    throw new Error(`No selectable options were available for ${fieldName}.`);
+  }
+
+  await selectLocator.selectOption(selectedOption.value);
+  console.log(`Selected ${fieldName}: ${selectedOption.label}`);
+}
+
 export async function expectSuccessToast(page, pattern = /created|success/i) {
   const toast = page.locator('[role="status"]');
   const visible = await toast.isVisible({ timeout: 15000 }).catch(() => false);

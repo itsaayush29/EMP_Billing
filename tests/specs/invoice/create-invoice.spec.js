@@ -1,27 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { invoiceData } from '../../data/invoice-data.js';
-import { safeClick, safeFill } from '../../utils/ui-helpers.js';
-
-async function selectFirstAvailableClient(page) {
-  const clientSelect = page.getByLabel(/client/i);
-  await expect(clientSelect).toBeVisible();
-
-  const options = await clientSelect.locator('option').evaluateAll((elements) =>
-    elements.map((option) => ({
-      value: option.value,
-      label: option.textContent?.trim() ?? '',
-      disabled: option.disabled,
-    }))
-  );
-
-  const selectedOption = options.find((option) => option.value && !option.disabled && !/select a client/i.test(option.label));
-  if (!selectedOption) {
-    throw new Error('No selectable client options were available in the invoice form.');
-  }
-
-  await clientSelect.selectOption(selectedOption.value);
-  console.log(`Selected invoice client: ${selectedOption.label}`);
-}
+import { safeClick, safeFill, selectFirstAvailableOption } from '../../utils/ui-helpers.js';
 
 test('Invoice Flow', async ({ page }) => {
   test.setTimeout(120000);
@@ -37,7 +16,7 @@ test('Invoice Flow', async ({ page }) => {
     await safeClick(page.getByRole('button', { name: /new invoice/i }), 'new invoice button');
 
     console.log('Filling invoice details...');
-    await selectFirstAvailableClient(page);
+    await selectFirstAvailableOption(page.getByLabel(/client/i), /select a client/i, 'invoice client');
     await safeFill(page.getByRole('textbox', { name: /issue date/i }), invoiceData.invoice.issueDate, 'issue date');
     await safeFill(page.getByRole('textbox', { name: /due date/i }), invoiceData.invoice.dueDate, 'due date');
     await page.getByLabel(/currency/i).selectOption(invoiceData.invoice.currency);
