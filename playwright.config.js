@@ -30,7 +30,7 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'on',
     video: isCI ? 'off' : 'retain-on-failure',
-    headless: process.env.HEADLESS !== 'false',
+    headless: process.env.HEADLESS !== 'true',
   },
   projects: [
     {

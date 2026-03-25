@@ -5,9 +5,11 @@
   "scripts": {
     "test": "playwright test",
     "test:health": "playwright test tests/specs/health/",
+    "test:coupons": "playwright test tests/specs/coupons/",
     "test:invoice": "playwright test tests/specs/invoice/",
     "test:quotes": "playwright test tests/specs/quotes/",
     "test:registration": "playwright test tests/specs/registration/",
+    "test:teams": "playwright test tests/specs/teams/",
     "test:vendor": "playwright test tests/specs/vendor/",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
