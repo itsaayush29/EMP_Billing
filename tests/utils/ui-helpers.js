@@ -1,11 +1,13 @@
-import { expect } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { By, until } from 'selenium-webdriver';
 
-export async function safeFill(locator, value, fieldName = 'field') {
+export async function safeFill(driver, locator, value, fieldName = 'field') {
   try {
-    await locator.waitFor({ state: 'visible', timeout: 30000 });
-    await locator.click();
-    await locator.clear();
-    await locator.fill(String(value));
+    const element = await driver.wait(until.elementLocated(locator), 30000);
+    await driver.wait(until.elementIsVisible(element), 30000);
+    await element.click();
+    await element.clear();
+    await element.sendKeys(String(value));
     console.log(`Filled ${fieldName}: ${value}`);
   } catch (error) {
     console.error(`Failed to fill ${fieldName}:`, error.message);
@@ -13,10 +15,11 @@ export async function safeFill(locator, value, fieldName = 'field') {
   }
 }
 
-export async function safeClick(locator, elementName = 'element') {
+export async function safeClick(driver, locator, elementName = 'element') {
   try {
-    await locator.waitFor({ state: 'visible', timeout: 30000 });
-    await locator.click();
+    const element = await driver.wait(until.elementLocated(locator), 30000);
+    await driver.wait(until.elementIsVisible(element), 30000);
+    await element.click();
     console.log(`Clicked ${elementName}`);
   } catch (error) {
     console.error(`Failed to click ${elementName}:`, error.message);
@@ -24,36 +27,31 @@ export async function safeClick(locator, elementName = 'element') {
   }
 }
 
-export async function selectFirstAvailableOption(selectLocator, placeholderPattern, fieldName = 'field') {
-  await expect(selectLocator).toBeVisible();
+export async function selectFirstAvailableOption(driver, selectLocator, placeholderPattern, fieldName = 'field') {
+  const selectElement = await driver.wait(until.elementLocated(selectLocator), 30000);
+  await driver.wait(until.elementIsVisible(selectElement), 30000);
 
-  await expect
-    .poll(
-      async () => {
-        const options = await selectLocator.locator('option').evaluateAll((elements) =>
-          elements.map((option) => ({
-            value: option.value,
-            label: option.textContent?.trim() ?? '',
-            disabled: option.disabled,
-          }))
-        );
+  await driver.wait(async () => {
+    const optionElements = await selectElement.findElements(By.css('option'));
+    const options = await Promise.all(
+      optionElements.map(async (option) => ({
+        value: (await option.getAttribute('value')) || '',
+        label: ((await option.getText()) || '').trim(),
+        disabled: (await option.getAttribute('disabled')) !== null,
+      }))
+    );
 
-        return options.filter(
-          (option) => option.value && !option.disabled && !(placeholderPattern?.test(option.label) ?? false)
-        ).length;
-      },
-      {
-        timeout: 30000,
-        message: `Waiting for selectable options for ${fieldName}`,
-      }
-    )
-    .toBeGreaterThan(0);
+    return options.filter(
+      (option) => option.value && !option.disabled && !(placeholderPattern?.test(option.label) ?? false)
+    ).length > 0;
+  }, 30000);
 
-  const options = await selectLocator.locator('option').evaluateAll((elements) =>
-    elements.map((option) => ({
-      value: option.value,
-      label: option.textContent?.trim() ?? '',
-      disabled: option.disabled,
+  const optionElements = await selectElement.findElements(By.css('option'));
+  const options = await Promise.all(
+    optionElements.map(async (option) => ({
+      value: (await option.getAttribute('value')) || '',
+      label: ((await option.getText()) || '').trim(),
+      disabled: (await option.getAttribute('disabled')) !== null,
     }))
   );
 
@@ -65,21 +63,32 @@ export async function selectFirstAvailableOption(selectLocator, placeholderPatte
     throw new Error(`No selectable options were available for ${fieldName}.`);
   }
 
-  await selectLocator.selectOption(selectedOption.value);
+  await driver.executeScript(
+    `
+      arguments[0].value = arguments[1];
+      arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+    `,
+    selectElement,
+    selectedOption.value
+  );
   console.log(`Selected ${fieldName}: ${selectedOption.label}`);
 }
 
-export async function expectSuccessToast(page, pattern = /created|success/i) {
-  const toast = page.locator('[role="status"]');
-  const visible = await toast.isVisible({ timeout: 15000 }).catch(() => false);
+export async function expectSuccessToast(driver, pattern = /created|success/i) {
+  const toasts = await driver.wait(async () => {
+    const elements = await driver.findElements(By.css('[role="status"]'));
+    return elements.length ? elements : false;
+  }, 15000);
+  const toast = toasts[0];
+  const visible = await toast.isDisplayed().catch(() => false);
 
   if (!visible) {
     throw new Error('Expected a success toast, but no status toast appeared.');
   }
 
-  const text = (await toast.textContent()) || '';
+  const text = (await toast.getText()) || '';
   console.log('Toast message:', text);
-  await expect(toast).toContainText(pattern);
+  assert.match(text, pattern);
 }
 
 export async function expectApiSuccess(responsePromise, entityName) {
@@ -90,6 +99,13 @@ export async function expectApiSuccess(responsePromise, entityName) {
     return;
   }
 
-  console.log(`${entityName} API status: ${response.status()}`);
-  expect([200, 201]).toContain(response.status());
+  const status =
+    typeof response.status === 'function'
+      ? await response.status()
+      : typeof response.getStatus === 'function'
+        ? await response.getStatus()
+        : response.statusCode;
+
+  console.log(`${entityName} API status: ${status}`);
+  assert.ok([200, 201].includes(status), `Expected ${entityName} API status to be 200 or 201, received ${status}.`);
 }

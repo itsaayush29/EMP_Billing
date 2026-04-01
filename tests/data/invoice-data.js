@@ -1,3 +1,7 @@
+import dotenv from 'dotenv';
+
+dotenv.config({ quiet: true });
+
 const timestamp = Date.now();
 const issueDate = new Date();
 const dueDate = new Date(issueDate);
