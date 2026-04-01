@@ -1,0 +1,15 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "https://test-empcloud.empcloud.com",
+      "localStorage": [
+        {
+          "name": "empcloud-auth",
+          "value": "{\"state\":{\"accessToken\":\"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik1qam5BRUFQU1FvTzA0Y0QifQ.eyJzdWIiOjUyMiwib3JnX2lkIjo1LCJlbWFpbCI6ImFuYW55YUB0ZWNobm92YS5pbiIsInJvbGUiOiJvcmdfYWRtaW4iLCJmaXJzdF9uYW1lIjoiQW5hbnlhIiwibGFzdF9uYW1lIjoiR3VwdGEiLCJvcmdfbmFtZSI6IlRlY2hOb3ZhIiwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsImNsaWVudF9pZCI6ImVtcGNsb3VkLWRhc2hib2FyZCIsImp0aSI6ImYzN2Q4ZjgzLWRjNmYtNGVjZC05OTlkLThiZmNmYTk3NDk4OSIsImlhdCI6MTc3NTAzOTI3NiwiZXhwIjoxNzc1MDQwMTc2LCJpc3MiOiJodHRwczovL3Rlc3QtZW1wY2xvdWQtYXBpLmVtcGNsb3VkLmNvbSJ9.CRcN56Mw0yR-Q2MV2xOJuLKYAfAxayY-yvxFQIX20aj2HG63g1sjgfM8kzUj0p4oDnO5g2c6s_XtFWYrrbh6A2HA2_ivwEo8dj6cP_h7ohpi_S6k_HRNmJG-4ZUKv2psyukIQpV6yUwWGQk4SetkW2gI0kbMGENugh3cD0YDoqQZ0aSsxfObT4KsTMDgRxAImLGoodP1edtKkel4NMNM02peaeaCEx2bIbN9pIA07muDlBm4QmT9Vueykf12CzOSKjdx5krlyBf-T95foTwrSjJEBjWPHdE-wg-b8BrbR1LZrCLx4oJV361DbJ7u6leUcVYUJ7M3DYeh76QmGowWbA\",\"refreshToken\":\"793kL1tLiJrlM2k7I2J5FWUfkSX7Vcu1qW5RDPeQpPcLJKYmjQlOMSAbz_jBMqJ2\",\"user\":{\"id\":522,\"email\":\"ananya@technova.in\",\"first_name\":\"Ananya\",\"last_name\":\"Gupta\",\"role\":\"org_admin\",\"org_id\":5,\"org_name\":\"TechNova\"},\"isAuthenticated\":true},\"version\":0}"
+        }
+      ],
+      "sessionStorage": []
+    }
+  ]
+}

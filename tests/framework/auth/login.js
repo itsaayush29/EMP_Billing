@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
-import { By } from 'selenium-webdriver';
 import { env } from '../config/env.js';
-import { openPath, waitForUrl } from '../core/navigation.js';
+import { openPath } from '../core/navigation.js';
 import { captureFailure } from '../support/artifacts.js';
 import { safeClick, safeFill } from '../support/interactions.js';
 import { waitForVisible } from '../support/waits.js';
@@ -9,8 +8,8 @@ import { LoginPage } from '../../pages/auth/login.page.js';
 
 async function isAuthenticated(driver) {
   try {
-    const navigation = await driver.findElement(By.css('[role="navigation"], nav'));
-    return navigation.isDisplayed().catch(() => false);
+    const marker = await driver.findElement(LoginPage.authenticatedMarker);
+    return marker.isDisplayed().catch(() => false);
   } catch {
     return false;
   }
@@ -18,7 +17,7 @@ async function isAuthenticated(driver) {
 
 export async function login(driver, credentials) {
   console.log('Checking authenticated session...');
-  await openPath(driver, '/dashboard');
+  await openPath(driver, '/login');
 
   if (await isAuthenticated(driver)) {
     console.log('Using existing authenticated session');
@@ -38,10 +37,10 @@ export async function login(driver, credentials) {
   await safeFill(driver, LoginPage.emailField, credentials.email, 'email');
   await safeFill(driver, LoginPage.passwordField, credentials.password, 'password');
   await safeClick(driver, LoginPage.signInButton, 'sign in button');
-  console.log('Waiting for dashboard after sign in...');
+  console.log('Waiting for authenticated area after sign in...');
 
   try {
-    await waitForUrl(driver, /\/dashboard\/?$/, 60000);
+    await waitForVisible(driver, LoginPage.authenticatedMarker, 60000);
   } catch (error) {
     const statusElements = await driver.findElements(LoginPage.statusToast);
     const toastVisible =

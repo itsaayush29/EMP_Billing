@@ -1,0 +1,7 @@
+[13512:13008:0401/161325.668:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:225] No machine level policy manager exists.
+[14276:6908:0401/161326.449:ERROR:ui\gl\direct_composition_support.cc:243] GetGpuDriverOverlayInfo: Failed to retrieve video device
+[14276:6908:0401/161326.494:WARNING:ui\gl\direct_composition_support.cc:1190] QueryInterface to IDCompositionDevice4 failed: No such interface supported (0x80004002)
+[13512:14772:0401/161326.846:WARNING:chrome\browser\media\router\discovery\discovery_network_list_win.cc:228] Failed to open WLAN handle: The service has not been started. (0x426)
+[13512:12724:0401/161334.115:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+[15924:8728:0401/161341.946:WARNING:net\extras\sqlite\sqlite_persistent_store_backend_base.cc:176] Failed to post task from FlushAndNotifyInBackground@net\extras\sqlite\sqlite_persistent_store_backend_base.cc:226 to client_task_runner_.
+[15924:8728:0401/161341.946:WARNING:net\extras\sqlite\sqlite_persistent_store_backend_base.cc:176] Failed to post task from FlushAndNotifyInBackground@net\extras\sqlite\sqlite_persistent_store_backend_base.cc:226 to client_task_runner_.

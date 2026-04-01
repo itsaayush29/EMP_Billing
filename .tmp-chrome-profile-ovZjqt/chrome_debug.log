@@ -1,0 +1,9 @@
+[9844:9724:0401/154414.918:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:225] No machine level policy manager exists.
+[9844:14984:0401/154416.815:WARNING:chrome\browser\media\router\discovery\discovery_network_list_win.cc:228] Failed to open WLAN handle: The service has not been started. (0x426)
+[5928:12604:0401/154417.883:ERROR:ui\gl\direct_composition_support.cc:243] GetGpuDriverOverlayInfo: Failed to retrieve video device
+[5928:12604:0401/154417.942:WARNING:ui\gl\direct_composition_support.cc:1190] QueryInterface to IDCompositionDevice4 failed: No such interface supported (0x80004002)
+[9844:9724:0401/154422.132:INFO:CONSOLE:61] "🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙", source: https://test-empcloud.empcloud.com/assets/index-DgaCI4Uz.js (61)
+[9844:9724:0401/154422.970:INFO:CONSOLE:0] "[DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq)", source: https://test-empcloud.empcloud.com/login (0)
+[9844:9724:0401/154423.296:INFO:CONSOLE:61] "🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙", source: https://test-empcloud.empcloud.com/assets/index-DgaCI4Uz.js (61)
+[9844:9724:0401/154423.768:INFO:CONSOLE:0] "[DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq)", source: https://test-empcloud.empcloud.com/login (0)
+[9844:5528:0401/154438.624:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT

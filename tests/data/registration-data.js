@@ -2,10 +2,12 @@ const timestamp = Date.now();
 
 export function createRegistrationUser(overrides = {}) {
   return {
+    organizationName: `Test Org ${timestamp}`,
+    organizationCountry: 'india',
+    organizationState: 'chhattisgarh',
     firstName: 'Test',
     lastName: 'User',
     workEmail: `test.user+${timestamp}@example.com`,
-    organizationName: `Test Org ${timestamp}`,
     password: 'Test@1234',
     ...overrides,
   };

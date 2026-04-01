@@ -1,0 +1,6 @@
+[6544:4576:0401/163724.803:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:225] No machine level policy manager exists.
+[15604:11972:0401/163724.975:ERROR:ui\gl\direct_composition_support.cc:243] GetGpuDriverOverlayInfo: Failed to retrieve video device
+[15604:11972:0401/163725.044:WARNING:ui\gl\direct_composition_support.cc:1190] QueryInterface to IDCompositionDevice4 failed: No such interface supported (0x80004002)
+[6544:15020:0401/163725.350:WARNING:chrome\browser\media\router\discovery\discovery_network_list_win.cc:228] Failed to open WLAN handle: The service has not been started. (0x426)
+[2308:5620:0401/163732.116:WARNING:net\extras\sqlite\sqlite_persistent_store_backend_base.cc:176] Failed to post task from FlushAndNotifyInBackground@net\extras\sqlite\sqlite_persistent_store_backend_base.cc:226 to client_task_runner_.
+[2308:5620:0401/163732.116:WARNING:net\extras\sqlite\sqlite_persistent_store_backend_base.cc:176] Failed to post task from FlushAndNotifyInBackground@net\extras\sqlite\sqlite_persistent_store_backend_base.cc:226 to client_task_runner_.

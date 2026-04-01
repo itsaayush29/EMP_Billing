@@ -59,6 +59,10 @@ export async function createDriver() {
     options.addArguments('--headless=new');
   }
 
+  if (env.incognito) {
+    options.addArguments('--incognito');
+  }
+
   options.setChromeBinaryPath(browserPath);
 
   const driver = await new Builder()

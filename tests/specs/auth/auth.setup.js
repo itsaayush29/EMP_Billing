@@ -1,5 +1,5 @@
 import { describe, it, afterEach } from 'mocha';
-import { invoiceData } from '../../data/invoice-data.js';
+import { authData } from '../../data/auth-data.js';
 import { login } from '../../framework/auth/login.js';
 import { env } from '../../framework/config/env.js';
 import { createDriver, destroyDriver } from '../../framework/core/browser.js';
@@ -23,7 +23,7 @@ describe('authenticate once for protected modules', function () {
     profileDir = created.profileDir;
 
     console.log('Creating shared authenticated session...');
-    await login(driver, invoiceData.login);
+    await login(driver, authData.login);
     await saveAuthState(driver, env.authFile);
     console.log(`Saved authenticated session to ${env.authFile}`);
   });
