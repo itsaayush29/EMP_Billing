@@ -1,133 +1,149 @@
-import { expect, test } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { describe, it, beforeEach, afterEach } from 'mocha';
+import { By, until } from 'selenium-webdriver';
 import { couponData } from '../../data/coupon-data.js';
-import { expectApiSuccess, expectSuccessToast, safeClick, safeFill } from '../../utils/ui-helpers.js';
+import { expectSuccessToast } from '../../framework/support/assertions.js';
+import { safeClick, safeFill, selectOption } from '../../framework/support/interactions.js';
+import { captureFailure } from '../../framework/support/artifacts.js';
+import { isVisible, waitForVisible } from '../../framework/support/waits.js';
+import { destroyDriver } from '../../framework/core/browser.js';
+import { openPath, waitForUrl } from '../../framework/core/navigation.js';
+import { trackNetworkResponse, waitForTrackedResponse } from '../../framework/core/network.js';
+import { startAuthenticatedDriver } from '../../framework/core/session.js';
+import { CouponsPage, couponRow } from '../../pages/modules/coupons.page.js';
 
-async function openCouponsModule(page) {
+async function openCouponsModule(driver) {
   console.log('Opening dashboard with shared authenticated session...');
-  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
+  await openPath(driver, '/dashboard');
+  await waitForVisible(driver, CouponsPage.dashboardLink, 30000);
 
   console.log('Opening coupons module...');
-  await safeClick(page.getByRole('link', { name: /coupons/i }), 'coupons link');
-  await expect(page.getByRole('heading', { name: /coupons/i })).toBeVisible();
+  await safeClick(driver, CouponsPage.couponsLink, 'coupons link');
+  await waitForVisible(driver, CouponsPage.couponsHeading, 30000);
 }
 
-async function openNewCouponPage(page) {
+async function openNewCouponPage(driver) {
   console.log('Opening new coupon form...');
-  await safeClick(page.getByRole('button', { name: /new coupon/i }), 'new coupon button');
-  await expect(page.getByRole('heading', { name: /new coupon/i })).toBeVisible();
+  await safeClick(driver, CouponsPage.newCouponButton, 'new coupon button');
+  await waitForVisible(driver, CouponsPage.newCouponHeading, 30000);
 }
 
-async function fillCouponForm(page, coupon) {
+async function fillCouponForm(driver, coupon) {
   console.log('Filling coupon form...');
-  await safeFill(page.getByPlaceholder('SUMMER20'), coupon.code, 'coupon code');
-  await safeFill(page.getByRole('textbox', { name: /name\*/i }), coupon.name, 'coupon name');
-  await page.getByLabel(/type\*/i).selectOption(coupon.type);
-  await safeFill(page.getByRole('spinbutton', { name: /percentage \(%\)\*/i }), coupon.percentage, 'percentage');
-  await page.getByLabel(/applies to/i).selectOption(coupon.scope);
-  await safeFill(page.getByRole('spinbutton', { name: /max redemptions/i }), coupon.maxRedemptions, 'max redemptions');
-  await safeFill(
-    page.locator('input[name="maxRedemptionsPerClient"]'),
-    coupon.maxRedemptionsPerClient,
-    'max redemptions per client'
-  );
-  await safeFill(page.getByRole('spinbutton', { name: /minimum amount/i }), coupon.minimumAmount, 'minimum amount');
-  await safeFill(page.getByRole('textbox', { name: /valid from/i }), coupon.validFrom, 'valid from');
-  await safeFill(page.getByRole('textbox', { name: /valid until/i }), coupon.validUntil, 'valid until');
+  await safeFill(driver, CouponsPage.codeField, coupon.code, 'coupon code');
+  await safeFill(driver, CouponsPage.nameField, coupon.name, 'coupon name');
+  await selectOption(driver, CouponsPage.typeSelect, coupon.type);
+  await safeFill(driver, CouponsPage.percentageField, coupon.percentage, 'percentage');
+  await selectOption(driver, CouponsPage.appliesToSelect, coupon.scope);
+  await safeFill(driver, CouponsPage.maxRedemptionsField, coupon.maxRedemptions, 'max redemptions');
+  await safeFill(driver, CouponsPage.maxRedemptionsPerClientField, coupon.maxRedemptionsPerClient, 'max redemptions per client');
+  await safeFill(driver, CouponsPage.minimumAmountField, coupon.minimumAmount, 'minimum amount');
+  await safeFill(driver, CouponsPage.validFromField, coupon.validFrom, 'valid from');
+  await safeFill(driver, CouponsPage.validUntilField, coupon.validUntil, 'valid until');
 }
 
-async function createCoupon(page, coupon) {
-  const createResponsePromise = page.waitForResponse(
-    (response) => response.request().method() === 'POST' && /coupon/i.test(response.url()),
-    { timeout: 30000 }
-  ).catch(() => null);
+async function createCoupon(driver, coupon) {
+  await trackNetworkResponse(driver, 'couponCreate', 'coupon');
 
   console.log('Submitting coupon form...');
-  await safeClick(page.getByRole('button', { name: /create coupon/i }), 'create coupon button');
+  await safeClick(driver, CouponsPage.createCouponButton, 'create coupon button');
 
-  const duplicateCodeError = page.getByText(/already exists|already used|duplicate/i).first();
-  const duplicateVisible = await duplicateCodeError.isVisible({ timeout: 5000 }).catch(() => false);
+  const duplicateVisible = await isVisible(driver, By.xpath("//*[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'already exists') or contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'already used') or contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'duplicate')]"), 5000);
   if (duplicateVisible) {
     throw new Error(`Coupon code is not unique: ${coupon.code}`);
   }
 
-  await expectApiSuccess(createResponsePromise, 'Coupon create');
+  const status = await waitForTrackedResponse(driver, 'couponCreate', 30000);
+  assert.ok([200, 201].includes(status), `Expected coupon create API status to be 200 or 201, received ${status}.`);
 
-  const statusVisible = await page.locator('[role="status"]').isVisible({ timeout: 15000 }).catch(() => false);
+  const statusVisible = await isVisible(driver, CouponsPage.statusToast, 15000);
   if (statusVisible) {
-    await expectSuccessToast(page, /coupon created|created|success/i);
+    await expectSuccessToast(driver, /coupon created|created|success/i);
   }
 }
 
-async function findCouponRow(page, coupon) {
-  const row = page
-    .locator('table tbody tr, [role="row"], .table-row')
-    .filter({ hasText: coupon.code })
-    .first();
-
-  await expect(row).toBeVisible({ timeout: 30000 });
-  return row;
+async function findCouponRow(driver, coupon) {
+  return waitForVisible(driver, couponRow(coupon.code), 30000);
 }
 
-async function openEditCouponPage(page, coupon) {
+async function openEditCouponPage(driver, coupon) {
   console.log('Returning to coupons list for edit check...');
-  await page.goto('/coupons', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: /coupons/i })).toBeVisible();
+  await openPath(driver, '/coupons');
+  await waitForVisible(driver, CouponsPage.couponsHeading, 30000);
 
   console.log('Opening edit coupon page...');
-  const row = await findCouponRow(page, coupon);
-  const actionButtons = row.getByRole('button');
-  await safeClick(actionButtons.nth(1), 'edit coupon button');
+  const row = await findCouponRow(driver, coupon);
+  const actionButtons = await row.findElements(By.css('button'));
+  if (actionButtons.length < 2) {
+    throw new Error('Edit coupon button was not found.');
+  }
+  await actionButtons[1].click();
 
-  await expect(page).toHaveURL(/coupon/i);
-  await expect(page.getByRole('heading', { name: /coupon/i })).toBeVisible();
-  await expect(page.getByDisplayValue(coupon.code)).toBeVisible({ timeout: 15000 });
+  await waitForUrl(driver, /coupon/i, 30000);
+  await waitForVisible(driver, CouponsPage.couponHeading, 30000);
+  const codeInput = await waitForVisible(driver, By.xpath(`//input[@value='${coupon.code}']`), 15000);
+  assert.equal(await codeInput.getAttribute('value'), coupon.code);
 }
 
-async function deactivateCoupon(page, coupon) {
+async function deactivateCoupon(driver, coupon) {
   console.log('Returning to coupons list...');
-  await page.goto('/coupons', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: /coupons/i })).toBeVisible();
+  await openPath(driver, '/coupons');
+  await waitForVisible(driver, CouponsPage.couponsHeading, 30000);
 
-  const row = await findCouponRow(page, coupon);
-  const actionButtons = row.getByRole('button');
+  const row = await findCouponRow(driver, coupon);
+  const actionButtons = await row.findElements(By.css('button'));
+  if (actionButtons.length < 3) {
+    throw new Error('Deactivate coupon button was not found.');
+  }
 
-  page.once('dialog', async (dialog) => {
-    console.log(`Accepting dialog: ${dialog.message()}`);
-    await dialog.accept();
-  });
-
-  const deactivateResponsePromise = page.waitForResponse(
-    (response) => {
-      const method = response.request().method();
-      return /coupon/i.test(response.url()) && ['DELETE', 'PATCH', 'PUT'].includes(method);
-    },
-    { timeout: 30000 }
-  ).catch(() => null);
+  await trackNetworkResponse(driver, 'couponDeactivate', 'coupon');
 
   console.log('Deactivating coupon...');
-  await safeClick(actionButtons.nth(2), 'deactivate coupon button');
-  await expectApiSuccess(deactivateResponsePromise, 'Coupon deactivate');
+  await actionButtons[2].click();
+  await driver.wait(until.alertIsPresent(), 10000);
+  const alert = await driver.switchTo().alert();
+  console.log(`Accepting dialog: ${await alert.getText()}`);
+  await alert.accept();
 
-  const statusVisible = await page.locator('[role="status"]').isVisible({ timeout: 15000 }).catch(() => false);
+  const status = await waitForTrackedResponse(driver, 'couponDeactivate', 30000);
+  assert.ok([200, 201].includes(status), `Expected coupon deactivate API status to be 200 or 201, received ${status}.`);
+
+  const statusVisible = await isVisible(driver, CouponsPage.statusToast, 15000);
   if (statusVisible) {
-    await expectSuccessToast(page, /coupon deactivated|deactivated|success/i);
+    await expectSuccessToast(driver, /coupon deactivated|deactivated|success/i);
   }
 }
 
-test('Coupons Module Flow', async ({ page }) => {
-  test.setTimeout(120000);
+describe('Coupons Module Flow', function () {
+  this.timeout(120000);
 
-  try {
-    await openCouponsModule(page);
-    await openNewCouponPage(page);
-    await fillCouponForm(page, couponData.coupon);
-    await createCoupon(page, couponData.coupon);
-    await openEditCouponPage(page, couponData.coupon);
-    await deactivateCoupon(page, couponData.coupon);
-  } catch (error) {
-    console.error('Coupons module flow failed:', error.message);
-    await page.screenshot({ path: `test-results/coupons-error-${Date.now()}.png` }).catch(() => {});
-    throw error;
-  }
+  let driver;
+  let profileDir;
+
+  beforeEach(async () => {
+    const created = await startAuthenticatedDriver();
+    driver = created.driver;
+    profileDir = created.profileDir;
+  });
+
+  afterEach(async () => {
+    await destroyDriver(driver, profileDir);
+    driver = undefined;
+    profileDir = undefined;
+  });
+
+  it('Coupons Module Flow', async function () {
+    try {
+      await openCouponsModule(driver);
+      await openNewCouponPage(driver);
+      await fillCouponForm(driver, couponData.coupon);
+      await createCoupon(driver, couponData.coupon);
+      await openEditCouponPage(driver, couponData.coupon);
+      await deactivateCoupon(driver, couponData.coupon);
+    } catch (error) {
+      console.error('Coupons module flow failed:', error.message);
+      await captureFailure(driver, 'coupons-error');
+      throw error;
+    }
+  });
 });

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { By, until } from 'selenium-webdriver';
+import { env } from '../config/env.js';
+import { waitForVisible } from './waits.js';
 
 export async function safeFill(driver, locator, value, fieldName = 'field') {
   try {
-    const element = await driver.wait(until.elementLocated(locator), 30000);
-    await driver.wait(until.elementIsVisible(element), 30000);
+    const element = await waitForVisible(driver, locator, env.timeout);
     await element.click();
     await element.clear();
     await element.sendKeys(String(value));
@@ -17,8 +18,7 @@ export async function safeFill(driver, locator, value, fieldName = 'field') {
 
 export async function safeClick(driver, locator, elementName = 'element') {
   try {
-    const element = await driver.wait(until.elementLocated(locator), 30000);
-    await driver.wait(until.elementIsVisible(element), 30000);
+    const element = await waitForVisible(driver, locator, env.timeout);
     await element.click();
     console.log(`Clicked ${elementName}`);
   } catch (error) {
@@ -28,8 +28,7 @@ export async function safeClick(driver, locator, elementName = 'element') {
 }
 
 export async function selectFirstAvailableOption(driver, selectLocator, placeholderPattern, fieldName = 'field') {
-  const selectElement = await driver.wait(until.elementLocated(selectLocator), 30000);
-  await driver.wait(until.elementIsVisible(selectElement), 30000);
+  const selectElement = await waitForVisible(driver, selectLocator, env.timeout);
 
   await driver.wait(async () => {
     const optionElements = await selectElement.findElements(By.css('option'));
@@ -44,7 +43,7 @@ export async function selectFirstAvailableOption(driver, selectLocator, placehol
     return options.filter(
       (option) => option.value && !option.disabled && !(placeholderPattern?.test(option.label) ?? false)
     ).length > 0;
-  }, 30000);
+  }, env.timeout);
 
   const optionElements = await selectElement.findElements(By.css('option'));
   const options = await Promise.all(
@@ -74,38 +73,27 @@ export async function selectFirstAvailableOption(driver, selectLocator, placehol
   console.log(`Selected ${fieldName}: ${selectedOption.label}`);
 }
 
-export async function expectSuccessToast(driver, pattern = /created|success/i) {
-  const toasts = await driver.wait(async () => {
-    const elements = await driver.findElements(By.css('[role="status"]'));
-    return elements.length ? elements : false;
-  }, 15000);
-  const toast = toasts[0];
-  const visible = await toast.isDisplayed().catch(() => false);
+export async function selectOption(driver, locator, valueOrLabel) {
+  const selectElement = await waitForVisible(driver, locator, env.timeout);
+  const found = await driver.executeScript(
+    `
+      const select = arguments[0];
+      const target = arguments[1];
+      const option = Array.from(select.options).find(
+        (item) => item.value === target || item.label === target || item.text.trim() === target
+      );
 
-  if (!visible) {
-    throw new Error('Expected a success toast, but no status toast appeared.');
-  }
+      if (!option) {
+        return false;
+      }
 
-  const text = (await toast.getText()) || '';
-  console.log('Toast message:', text);
-  assert.match(text, pattern);
-}
+      select.value = option.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    `,
+    selectElement,
+    valueOrLabel
+  );
 
-export async function expectApiSuccess(responsePromise, entityName) {
-  const response = await responsePromise;
-
-  if (!response) {
-    console.warn(`${entityName} API response was not captured.`);
-    return;
-  }
-
-  const status =
-    typeof response.status === 'function'
-      ? await response.status()
-      : typeof response.getStatus === 'function'
-        ? await response.getStatus()
-        : response.statusCode;
-
-  console.log(`${entityName} API status: ${status}`);
-  assert.ok([200, 201].includes(status), `Expected ${entityName} API status to be 200 or 201, received ${status}.`);
+  assert.equal(found, true, `Expected select option "${valueOrLabel}" to be available.`);
 }

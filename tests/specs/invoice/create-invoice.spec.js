@@ -1,59 +1,77 @@
-import { expect, test } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { describe, it, beforeEach, afterEach } from 'mocha';
 import { invoiceData } from '../../data/invoice-data.js';
-import { safeClick, safeFill, selectFirstAvailableOption } from '../../utils/ui-helpers.js';
+import { safeClick, safeFill, selectFirstAvailableOption, selectOption } from '../../framework/support/interactions.js';
+import { waitForVisible, isVisible } from '../../framework/support/waits.js';
+import { captureFailure } from '../../framework/support/artifacts.js';
+import { destroyDriver } from '../../framework/core/browser.js';
+import { openPath } from '../../framework/core/navigation.js';
+import { trackNetworkResponse, waitForTrackedResponse } from '../../framework/core/network.js';
+import { startAuthenticatedDriver } from '../../framework/core/session.js';
+import {
+  InvoicePage,
+} from '../../pages/modules/invoice.page.js';
 
-test('Invoice Flow', async ({ page }) => {
-  test.setTimeout(120000);
+describe('Invoice Flow', function () {
+  this.timeout(120000);
 
-  try {
-    console.log('Starting invoice creation test...');
-    console.log('Opening dashboard with shared authenticated session...');
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  let driver;
+  let profileDir;
 
-    console.log('Opening invoices module...');
-    await safeClick(page.getByRole('link', { name: /invoices/i }), 'invoices link');
-    await page.waitForLoadState('networkidle');
-    await safeClick(page.getByRole('button', { name: /new invoice/i }), 'new invoice button');
+  beforeEach(async () => {
+    const created = await startAuthenticatedDriver();
+    driver = created.driver;
+    profileDir = created.profileDir;
+  });
 
-    console.log('Filling invoice details...');
-    await selectFirstAvailableOption(page.getByLabel(/client/i), /select a client/i, 'invoice client');
-    await safeFill(page.getByRole('textbox', { name: /issue date/i }), invoiceData.invoice.issueDate, 'issue date');
-    await safeFill(page.getByRole('textbox', { name: /due date/i }), invoiceData.invoice.dueDate, 'due date');
-    await page.getByLabel(/currency/i).selectOption(invoiceData.invoice.currency);
-    await safeFill(page.getByRole('textbox', { name: /reference/i }), invoiceData.invoice.reference, 'reference');
+  afterEach(async () => {
+    await destroyDriver(driver, profileDir);
+    driver = undefined;
+    profileDir = undefined;
+  });
 
-    console.log('Filling minimal invoice details...');
-    await safeFill(page.getByRole('textbox', { name: /item name/i }), invoiceData.lineItems[0].name, 'item name');
-    await safeFill(page.getByRole('textbox', { name: /description/i }), invoiceData.lineItems[0].description, 'description');
-    await safeFill(page.getByPlaceholder('1', { exact: true }), invoiceData.lineItems[0].quantity, 'quantity');
-    await safeFill(page.getByPlaceholder('0.00'), invoiceData.lineItems[0].rate, 'rate');
+  it('Invoice Flow', async function () {
+    try {
+      console.log('Starting invoice creation test...');
+      console.log('Opening dashboard with shared authenticated session...');
+      await openPath(driver, '/dashboard');
 
-    console.log('Submitting invoice...');
-    const responsePromise = page.waitForResponse(
-      (response) => response.url().includes('/invoices') && response.request().method() === 'POST',
-      { timeout: 30000 }
-    ).catch(() => null);
+      console.log('Opening invoices module...');
+      await safeClick(driver, InvoicePage.invoicesLink, 'invoices link');
+      await safeClick(driver, InvoicePage.newInvoiceButton, 'new invoice button');
 
-    await safeClick(page.getByRole('button', { name: /create invoice/i }), 'create invoice button');
-    const response = await responsePromise;
-    expect(response, 'Invoice API response was not captured.').not.toBeNull();
-    expect(response?.status()).toBe(201);
+      console.log('Filling invoice details...');
+      await selectFirstAvailableOption(driver, InvoicePage.clientSelect, /select a client/i, 'invoice client');
+      await safeFill(driver, InvoicePage.issueDateField, invoiceData.invoice.issueDate, 'issue date');
+      await safeFill(driver, InvoicePage.dueDateField, invoiceData.invoice.dueDate, 'due date');
+      await selectOption(driver, InvoicePage.currencySelect, invoiceData.invoice.currency);
+      await safeFill(driver, InvoicePage.referenceField, invoiceData.invoice.reference, 'reference');
 
-    const toast = page.locator('[role="status"]');
-    const toastVisible = await toast.isVisible({ timeout: 15000 }).catch(() => false);
+      console.log('Filling minimal invoice details...');
+      await safeFill(driver, InvoicePage.itemNameField, invoiceData.lineItems[0].name, 'item name');
+      await safeFill(driver, InvoicePage.descriptionField, invoiceData.lineItems[0].description, 'description');
+      await safeFill(driver, InvoicePage.quantityField, invoiceData.lineItems[0].quantity, 'quantity');
+      await safeFill(driver, InvoicePage.rateField, invoiceData.lineItems[0].rate, 'rate');
 
-    if (toastVisible) {
-      const text = (await toast.textContent()) || '';
-      console.log('Toast message:', text);
-    } else {
-      console.log('Waiting for invoice page to settle...');
-      await test.step('wait for invoice form to close after successful creation', async () => {
-        await page.waitForLoadState('networkidle').catch(() => {});
-      });
+      console.log('Submitting invoice...');
+      await trackNetworkResponse(driver, 'invoiceCreate', '/invoices');
+      await safeClick(driver, InvoicePage.createInvoiceButton, 'create invoice button');
+
+      const status = await waitForTrackedResponse(driver, 'invoiceCreate', 30000);
+      assert.equal(status, 201, `Expected invoice API status to be 201, received ${status}.`);
+
+      const toastVisible = await isVisible(driver, InvoicePage.statusToast, 15000);
+      if (toastVisible) {
+        const toast = await waitForVisible(driver, InvoicePage.statusToast, 15000);
+        console.log('Toast message:', (await toast.getText()) || '');
+      } else {
+        console.log('Waiting for invoice page to settle...');
+        await driver.sleep(2000);
+      }
+    } catch (error) {
+      console.error('Invoice flow failed:', error.message);
+      await captureFailure(driver, 'invoice-error');
+      throw error;
     }
-  } catch (error) {
-    console.error('Invoice flow failed:', error.message);
-    await page.screenshot({ path: `test-results/invoice-error-${Date.now()}.png` });
-    throw error;
-  }
+  });
 });

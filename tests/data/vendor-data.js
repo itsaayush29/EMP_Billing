@@ -17,6 +17,6 @@ export const vendorData = {
     state: 'Chhattisgarh',
     postalCode: '490020',
     country: 'India',
-    notes: 'Created by Playwright automation',
+    notes: 'Created by Selenium automation',
   },
 };

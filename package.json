@@ -4,11 +4,19 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "mocha tests/specs/auth/auth.setup.js --timeout 120000",
+    "test": "npm run test:auth-setup && mocha \"tests/specs/**/*.spec.js\" --timeout 120000",
     "test:auth-setup": "mocha tests/specs/auth/auth.setup.js --timeout 120000",
+    "test:client": "mocha tests/specs/client/client.spec.js --timeout 120000",
+    "test:coupons": "mocha tests/specs/coupons/create-coupon.spec.js --timeout 120000",
+    "test:health": "mocha tests/specs/health/health-check.spec.js --timeout 120000",
+    "test:invoice": "mocha tests/specs/invoice/create-invoice.spec.js --timeout 120000",
+    "test:payments": "mocha tests/specs/payments/create-payment.spec.js --timeout 120000",
+    "test:quotes": "mocha tests/specs/quotes/create-quote.spec.js --timeout 120000",
     "test:registration": "mocha tests/specs/registration/create-account.spec.js --timeout 120000",
-    "test:headed": "cross-env HEADLESS=false mocha tests/specs/auth/auth.setup.js --timeout 120000",
-    "test:headless": "cross-env HEADLESS=true mocha tests/specs/auth/auth.setup.js --timeout 120000"
+    "test:teams": "mocha tests/specs/teams/create-team-member.spec.js --timeout 120000",
+    "test:vendor": "mocha tests/specs/vendor/create-vendor.spec.js --timeout 120000",
+    "test:headed": "cross-env HEADLESS=false npm test",
+    "test:headless": "cross-env HEADLESS=true npm test"
   },
   "repository": {
     "type": "git",

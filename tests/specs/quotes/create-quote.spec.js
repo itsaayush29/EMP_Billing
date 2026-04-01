@@ -1,55 +1,74 @@
-import { expect, test } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { describe, it, beforeEach, afterEach } from 'mocha';
 import { quoteData } from '../../data/quote-data.js';
-import { safeClick, safeFill, selectFirstAvailableOption } from '../../utils/ui-helpers.js';
+import { safeClick, safeFill, selectFirstAvailableOption, selectOption } from '../../framework/support/interactions.js';
+import { waitForVisible, isVisible } from '../../framework/support/waits.js';
+import { captureFailure } from '../../framework/support/artifacts.js';
+import { destroyDriver } from '../../framework/core/browser.js';
+import { openPath } from '../../framework/core/navigation.js';
+import { trackNetworkResponse, waitForTrackedResponse } from '../../framework/core/network.js';
+import { startAuthenticatedDriver } from '../../framework/core/session.js';
+import {
+  QuotesPage,
+} from '../../pages/modules/quotes.page.js';
 
-test('Quote Creation Flow', async ({ page }) => {
-  test.setTimeout(120000);
+describe('Quote Creation Flow', function () {
+  this.timeout(120000);
 
-  try {
-    console.log('Opening dashboard with shared authenticated session...');
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
+  let driver;
+  let profileDir;
 
-    console.log('Opening quotes module...');
-    await safeClick(page.getByRole('link', { name: /quotes/i }), 'quotes link');
-    await page.waitForLoadState('networkidle');
-    await safeClick(page.getByRole('button', { name: /new quote/i }), 'new quote button');
-    await expect(page.getByRole('heading', { name: /new quote/i })).toBeVisible();
+  beforeEach(async () => {
+    const created = await startAuthenticatedDriver();
+    driver = created.driver;
+    profileDir = created.profileDir;
+  });
 
-    console.log('Filling quote form...');
-    await selectFirstAvailableOption(page.getByLabel(/client/i), /select a client/i, 'quote client');
-    await safeFill(page.getByRole('textbox', { name: /issue date/i }), quoteData.quote.issueDate, 'issue date');
-    await safeFill(page.getByRole('textbox', { name: /expiry date/i }), quoteData.quote.expiryDate, 'expiry date');
-    await page.getByLabel(/currency/i).selectOption(quoteData.quote.currency);
+  afterEach(async () => {
+    await destroyDriver(driver, profileDir);
+    driver = undefined;
+    profileDir = undefined;
+  });
 
-    await safeFill(page.getByRole('textbox', { name: /item name/i }), quoteData.lineItems[0].name, 'item name');
-    await safeFill(page.getByRole('textbox', { name: /description/i }), quoteData.lineItems[0].description, 'description');
-    await safeFill(page.getByPlaceholder('1', { exact: true }), quoteData.lineItems[0].quantity, 'quantity');
-    await safeFill(page.getByPlaceholder('0.00'), quoteData.lineItems[0].rate, 'rate');
+  it('Quote Creation Flow', async function () {
+    try {
+      console.log('Opening dashboard with shared authenticated session...');
+      await openPath(driver, '/dashboard');
+      await waitForVisible(driver, QuotesPage.dashboardLink, 30000);
 
-    const notes = page.getByRole('textbox', { name: /^notes$/i });
-    if (await notes.isVisible().catch(() => false)) {
-      await safeFill(notes, quoteData.quote.notes, 'notes');
+      console.log('Opening quotes module...');
+      await safeClick(driver, QuotesPage.quotesLink, 'quotes link');
+      await safeClick(driver, QuotesPage.newQuoteButton, 'new quote button');
+      await waitForVisible(driver, QuotesPage.newQuoteHeading, 30000);
+
+      console.log('Filling quote form...');
+      await selectFirstAvailableOption(driver, QuotesPage.clientSelect, /select a client/i, 'quote client');
+      await safeFill(driver, QuotesPage.issueDateField, quoteData.quote.issueDate, 'issue date');
+      await safeFill(driver, QuotesPage.expiryDateField, quoteData.quote.expiryDate, 'expiry date');
+      await selectOption(driver, QuotesPage.currencySelect, quoteData.quote.currency);
+
+      await safeFill(driver, QuotesPage.itemNameField, quoteData.lineItems[0].name, 'item name');
+      await safeFill(driver, QuotesPage.descriptionField, quoteData.lineItems[0].description, 'description');
+      await safeFill(driver, QuotesPage.quantityField, quoteData.lineItems[0].quantity, 'quantity');
+      await safeFill(driver, QuotesPage.rateField, quoteData.lineItems[0].rate, 'rate');
+
+      if (await isVisible(driver, QuotesPage.notesField, 3000)) {
+        await safeFill(driver, QuotesPage.notesField, quoteData.quote.notes, 'notes');
+      }
+
+      if (await isVisible(driver, QuotesPage.termsField, 3000)) {
+        await safeFill(driver, QuotesPage.termsField, quoteData.quote.terms, 'terms');
+      }
+
+      console.log('Submitting quote...');
+      await trackNetworkResponse(driver, 'quoteCreate', '/quotes');
+      await safeClick(driver, QuotesPage.createQuoteButton, 'create quote button');
+      const status = await waitForTrackedResponse(driver, 'quoteCreate', 30000);
+      assert.equal(status, 201, `Expected quote API status to be 201, received ${status}.`);
+    } catch (error) {
+      console.error('Quote creation flow failed:', error.message);
+      await captureFailure(driver, 'quote-error');
+      throw error;
     }
-
-    const terms = page.getByRole('textbox', { name: /terms/i });
-    if (await terms.isVisible().catch(() => false)) {
-      await safeFill(terms, quoteData.quote.terms, 'terms');
-    }
-
-    console.log('Submitting quote...');
-    const responsePromise = page.waitForResponse(
-      (response) => response.url().includes('/quotes') && response.request().method() === 'POST',
-      { timeout: 30000 }
-    ).catch(() => null);
-
-    await safeClick(page.getByRole('button', { name: /create quote/i }), 'create quote button');
-    const response = await responsePromise;
-    expect(response, 'Quote API response was not captured.').not.toBeNull();
-    expect(response?.status()).toBe(201);
-  } catch (error) {
-    console.error('Quote creation flow failed:', error.message);
-    await page.screenshot({ path: `test-results/quote-error-${Date.now()}.png` }).catch(() => {});
-    throw error;
-  }
+  });
 });

@@ -1,100 +1,110 @@
-import { expect, test } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { describe, it, beforeEach, afterEach } from 'mocha';
+import { By, until } from 'selenium-webdriver';
 import { teamData } from '../../data/team-data.js';
-import { expectApiSuccess, expectSuccessToast, safeClick, safeFill } from '../../utils/ui-helpers.js';
+import { expectSuccessToast } from '../../framework/support/assertions.js';
+import { safeClick, safeFill, selectOption } from '../../framework/support/interactions.js';
+import { captureFailure } from '../../framework/support/artifacts.js';
+import { isVisible, waitForNotVisible, waitForVisible } from '../../framework/support/waits.js';
+import { destroyDriver } from '../../framework/core/browser.js';
+import { openPath } from '../../framework/core/navigation.js';
+import { trackNetworkResponse, waitForTrackedResponse } from '../../framework/core/network.js';
+import { startAuthenticatedDriver } from '../../framework/core/session.js';
+import { TeamsPage, memberRow } from '../../pages/modules/teams.page.js';
 
-async function openTeamModule(page) {
+async function openTeamModule(driver) {
   console.log('Opening dashboard with shared authenticated session...');
-  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
+  await openPath(driver, '/dashboard');
+  await waitForVisible(driver, TeamsPage.dashboardLink, 30000);
 
   console.log('Opening team module...');
-  await safeClick(page.getByRole('link', { name: /team/i }), 'team link');
-  await expect(page.getByRole('heading', { name: /team/i })).toBeVisible();
+  await safeClick(driver, TeamsPage.teamLink, 'team link');
+  await waitForVisible(driver, TeamsPage.teamHeading, 30000);
 }
 
-async function inviteTeamMember(page, member) {
+async function inviteTeamMember(driver, member) {
   console.log('Opening invite team member form...');
-  await safeClick(page.getByRole('button', { name: /invite member/i }), 'invite member button');
-  await expect(page.getByRole('heading', { name: /invite team member/i })).toBeVisible();
+  await safeClick(driver, TeamsPage.inviteMemberButton, 'invite member button');
+  await waitForVisible(driver, TeamsPage.inviteTeamMemberHeading, 30000);
 
   console.log('Filling team member form...');
-  await safeFill(page.getByRole('textbox', { name: /first name\*/i }), member.firstName, 'first name');
-  await safeFill(page.getByRole('textbox', { name: /last name\*/i }), member.lastName, 'last name');
-  await safeFill(page.getByRole('textbox', { name: /^email\*$/i }), member.email, 'team member email');
-  await page.getByLabel(/role\*/i).selectOption({ label: member.role }).catch(async () => {
-    await page.getByLabel(/role\*/i).selectOption(member.role);
-  });
+  await safeFill(driver, TeamsPage.firstNameField, member.firstName, 'first name');
+  await safeFill(driver, TeamsPage.lastNameField, member.lastName, 'last name');
+  await safeFill(driver, TeamsPage.emailField, member.email, 'team member email');
+  await selectOption(driver, TeamsPage.roleSelect, member.role);
 
   console.log('Submitting invite...');
-  const inviteResponsePromise = page.waitForResponse(
-    (response) => {
-      const request = response.request();
-      return request.method() === 'POST' && /team|member|invite/i.test(response.url());
-    },
-    { timeout: 30000 }
-  ).catch(() => null);
+  await trackNetworkResponse(driver, 'teamInvite', 'team|member|invite');
+  await safeClick(driver, TeamsPage.sendInviteButton, 'send invite button');
 
-  await safeClick(page.getByRole('button', { name: /send invite/i }), 'send invite button');
-
-  const duplicateEmailError = page.getByText(/already exists|already invited|email.*exists/i).first();
-  const duplicateVisible = await duplicateEmailError.isVisible({ timeout: 5000 }).catch(() => false);
+  const duplicateVisible =
+    (await isVisible(driver, By.xpath("//*[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'already exists')]"), 5000)) ||
+    (await isVisible(driver, By.xpath("//*[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'already invited')]"), 5000));
   if (duplicateVisible) {
     throw new Error(`Team member email is not unique: ${member.email}`);
   }
 
-  await expectApiSuccess(inviteResponsePromise, 'Team invite');
+  const status = await waitForTrackedResponse(driver, 'teamInvite', 30000);
+  assert.ok([200, 201].includes(status), `Expected team invite API status to be 200 or 201, received ${status}.`);
 
-  const statusVisible = await page.locator('[role="status"]').isVisible({ timeout: 15000 }).catch(() => false);
+  const statusVisible = await isVisible(driver, TeamsPage.statusToast, 15000);
   if (statusVisible) {
-    await expectSuccessToast(page, /member invited|invite sent|success/i);
+    await expectSuccessToast(driver, /member invited|invite sent|success/i);
   }
 }
 
-async function removeTeamMember(page, member) {
+async function removeTeamMember(driver, member) {
   console.log('Locating invited team member row...');
-  const memberRow = page
-    .locator('tr, [role="row"], .table-row')
-    .filter({ hasText: member.email })
-    .first();
+  const row = await waitForVisible(driver, memberRow(member.email), 30000);
 
-  await expect(memberRow).toBeVisible({ timeout: 30000 });
-
-  page.once('dialog', async (dialog) => {
-    console.log(`Accepting dialog: ${dialog.message()}`);
-    await dialog.accept();
-  });
-
-  const removeResponsePromise = page.waitForResponse(
-    (response) => {
-      const request = response.request();
-      return /team|member/i.test(response.url()) && ['DELETE', 'PATCH', 'PUT'].includes(request.method());
-    },
-    { timeout: 30000 }
-  ).catch(() => null);
+  const removeButton = await row.findElement(By.xpath(`.//button[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'remove')]`));
+  await trackNetworkResponse(driver, 'teamRemove', 'team|member');
 
   console.log('Removing invited team member...');
-  await safeClick(memberRow.getByRole('button', { name: /remove/i }).first(), 'remove member button');
+  await removeButton.click();
+  await driver.wait(until.alertIsPresent(), 10000);
+  const alert = await driver.switchTo().alert();
+  console.log(`Accepting dialog: ${await alert.getText()}`);
+  await alert.accept();
 
-  await expectApiSuccess(removeResponsePromise, 'Team remove');
+  const status = await waitForTrackedResponse(driver, 'teamRemove', 30000);
+  assert.ok([200, 201].includes(status), `Expected team remove API status to be 200 or 201, received ${status}.`);
 
-  const statusVisible = await page.locator('[role="status"]').isVisible({ timeout: 15000 }).catch(() => false);
+  const statusVisible = await isVisible(driver, TeamsPage.statusToast, 15000);
   if (statusVisible) {
-    await expectSuccessToast(page, /member removed|removed|success/i);
+    await expectSuccessToast(driver, /member removed|removed|success/i);
   }
 
-  await expect(memberRow).not.toBeVisible({ timeout: 30000 });
+  await waitForNotVisible(driver, memberRow(member.email), 30000);
 }
 
-test('Teams Module Flow', async ({ page }) => {
-  test.setTimeout(120000);
+describe('Teams Module Flow', function () {
+  this.timeout(120000);
 
-  try {
-    await openTeamModule(page);
-    await inviteTeamMember(page, teamData.member);
-    await removeTeamMember(page, teamData.member);
-  } catch (error) {
-    console.error('Teams module flow failed:', error.message);
-    await page.screenshot({ path: `test-results/teams-error-${Date.now()}.png` }).catch(() => {});
-    throw error;
-  }
+  let driver;
+  let profileDir;
+
+  beforeEach(async () => {
+    const created = await startAuthenticatedDriver();
+    driver = created.driver;
+    profileDir = created.profileDir;
+  });
+
+  afterEach(async () => {
+    await destroyDriver(driver, profileDir);
+    driver = undefined;
+    profileDir = undefined;
+  });
+
+  it('Teams Module Flow', async function () {
+    try {
+      await openTeamModule(driver);
+      await inviteTeamMember(driver, teamData.member);
+      await removeTeamMember(driver, teamData.member);
+    } catch (error) {
+      console.error('Teams module flow failed:', error.message);
+      await captureFailure(driver, 'teams-error');
+      throw error;
+    }
+  });
 });

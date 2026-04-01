@@ -1,52 +1,76 @@
-import { test, expect } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { describe, it, beforeEach, afterEach } from 'mocha';
 import { vendorData } from '../../data/vendor-data.js';
-import { expectSuccessToast, safeClick, safeFill } from '../../utils/ui-helpers.js';
+import { expectSuccessToast } from '../../framework/support/assertions.js';
+import { safeClick, safeFill } from '../../framework/support/interactions.js';
+import { isVisible, waitForNotVisible, waitForVisible } from '../../framework/support/waits.js';
+import { captureFailure } from '../../framework/support/artifacts.js';
+import { destroyDriver } from '../../framework/core/browser.js';
+import { openPath } from '../../framework/core/navigation.js';
+import { trackNetworkResponse, waitForTrackedResponse } from '../../framework/core/network.js';
+import { startAuthenticatedDriver } from '../../framework/core/session.js';
+import { VendorPage } from '../../pages/modules/vendor.page.js';
 
-test('Vendor Creation Flow', async ({ page }) => {
-  test.setTimeout(120000);
+describe('Vendor Creation Flow', function () {
+  this.timeout(120000);
 
-  try {
-    console.log('Starting vendor creation test...');
-    console.log('Opening dashboard with shared authenticated session...');
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  let driver;
+  let profileDir;
 
-    await safeClick(page.getByRole('link', { name: /vendors/i }), 'vendors link');
-    await page.waitForLoadState('networkidle');
-    await safeClick(page.getByRole('button', { name: /new vendor/i }).first(), 'new vendor button');
-    await expect(page.getByRole('heading', { name: /new vendor/i })).toBeVisible();
+  beforeEach(async () => {
+    const created = await startAuthenticatedDriver();
+    driver = created.driver;
+    profileDir = created.profileDir;
+  });
 
-    await safeFill(page.getByRole('textbox', { name: /vendor name\*/i }), vendorData.vendor.name, 'vendor name');
-    await safeFill(page.getByRole('textbox', { name: /^company$/i }), vendorData.vendor.company, 'company');
-    await safeFill(page.getByRole('textbox', { name: /^email$/i }), vendorData.vendor.email, 'vendor email');
-    await safeFill(page.getByRole('textbox', { name: /^phone$/i }), vendorData.vendor.phone, 'phone');
-    await safeFill(page.getByRole('textbox', { name: /gstin \/ tax id/i }), vendorData.vendor.taxId, 'tax id');
-    await safeFill(page.getByRole('textbox', { name: /address line 1/i }), vendorData.vendor.addressLine1, 'address line 1');
-    await safeFill(page.getByRole('textbox', { name: /address line 2/i }), vendorData.vendor.addressLine2, 'address line 2');
-    await safeFill(page.getByRole('textbox', { name: /^city$/i }), vendorData.vendor.city, 'city');
-    await safeFill(page.getByRole('textbox', { name: /^state$/i }), vendorData.vendor.state, 'state');
-    await safeFill(page.getByRole('textbox', { name: /postal code/i }), vendorData.vendor.postalCode, 'postal code');
-    await safeFill(page.getByRole('textbox', { name: /^country$/i }), vendorData.vendor.country, 'country');
-    await safeFill(page.getByRole('textbox', { name: /^notes$/i }), vendorData.vendor.notes, 'notes');
+  afterEach(async () => {
+    await destroyDriver(driver, profileDir);
+    driver = undefined;
+    profileDir = undefined;
+  });
 
-    const responsePromise = page.waitForResponse(
-      (response) => response.url().includes('/vendors') && response.request().method() === 'POST',
-      { timeout: 30000 }
-    ).catch(() => null);
+  it('Vendor Creation Flow', async function () {
+    try {
+      console.log('Starting vendor creation test...');
+      console.log('Opening dashboard with shared authenticated session...');
+      await openPath(driver, '/dashboard');
 
-    await safeClick(page.getByRole('button', { name: /create vendor/i }), 'create vendor button');
-    const response = await responsePromise;
-    expect(response, 'Vendor API response was not captured.').not.toBeNull();
-    expect(response?.status()).toBe(201);
+      await safeClick(driver, VendorPage.vendorsLink, 'vendors link');
+      const newVendorButtons = await driver.findElements(VendorPage.newVendorButtons);
+      if (!newVendorButtons.length) {
+        throw new Error('New vendor button was not found.');
+      }
+      await newVendorButtons[0].click();
+      await waitForVisible(driver, VendorPage.newVendorHeading, 30000);
 
-    const toastVisible = await page.locator('[role="status"]').isVisible({ timeout: 15000 }).catch(() => false);
-    if (toastVisible) {
-      await expectSuccessToast(page);
-    } else {
-      await expect(page.getByRole('heading', { name: /new vendor/i })).not.toBeVisible({ timeout: 15000 });
+      await safeFill(driver, VendorPage.vendorNameField, vendorData.vendor.name, 'vendor name');
+      await safeFill(driver, VendorPage.companyField, vendorData.vendor.company, 'company');
+      await safeFill(driver, VendorPage.emailField, vendorData.vendor.email, 'vendor email');
+      await safeFill(driver, VendorPage.phoneField, vendorData.vendor.phone, 'phone');
+      await safeFill(driver, VendorPage.taxIdField, vendorData.vendor.taxId, 'tax id');
+      await safeFill(driver, VendorPage.addressLine1Field, vendorData.vendor.addressLine1, 'address line 1');
+      await safeFill(driver, VendorPage.addressLine2Field, vendorData.vendor.addressLine2, 'address line 2');
+      await safeFill(driver, VendorPage.cityField, vendorData.vendor.city, 'city');
+      await safeFill(driver, VendorPage.stateField, vendorData.vendor.state, 'state');
+      await safeFill(driver, VendorPage.postalCodeField, vendorData.vendor.postalCode, 'postal code');
+      await safeFill(driver, VendorPage.countryField, vendorData.vendor.country, 'country');
+      await safeFill(driver, VendorPage.notesField, vendorData.vendor.notes, 'notes');
+
+      await trackNetworkResponse(driver, 'vendorCreate', '/vendors');
+      await safeClick(driver, VendorPage.createVendorButton, 'create vendor button');
+      const status = await waitForTrackedResponse(driver, 'vendorCreate', 30000);
+      assert.equal(status, 201, `Expected vendor API status to be 201, received ${status}.`);
+
+      const toastVisible = await isVisible(driver, VendorPage.statusToast, 15000);
+      if (toastVisible) {
+        await expectSuccessToast(driver);
+      } else {
+        await waitForNotVisible(driver, VendorPage.newVendorHeading, 15000);
+      }
+    } catch (error) {
+      console.error('Vendor creation flow failed:', error.message);
+      await captureFailure(driver, 'vendor-error');
+      throw error;
     }
-  } catch (error) {
-    console.error('Vendor creation flow failed:', error.message);
-    await page.screenshot({ path: `test-results/vendor-error-${Date.now()}.png` });
-    throw error;
-  }
+  });
 });
