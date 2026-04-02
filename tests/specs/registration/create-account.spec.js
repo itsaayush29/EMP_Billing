@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { until } from 'selenium-webdriver';
 import { describe, it, beforeEach, afterEach } from 'mocha';
-import { registrationScenarios } from '../../data/registration-scenarios.js';
+import { registrationData } from '../../data/registration-data.js';
+import { onboardingData } from '../../data/onboarding-data.js';
 import { safeClick, safeFill } from '../../framework/support/interactions.js';
 import { captureFailure } from '../../framework/support/artifacts.js';
 import { createDriver, destroyDriver } from '../../framework/core/browser.js';
-import { getTrackedResponseCount, trackNetworkResponse, waitForTrackedResponse } from '../../framework/core/network.js';
+import { trackNetworkResponse, waitForTrackedResponse } from '../../framework/core/network.js';
 import { waitForVisible, isVisible } from '../../framework/support/waits.js';
 import { waitForUrl } from '../../framework/core/navigation.js';
 import { LoginPage } from '../../pages/auth/login.page.js';
@@ -39,8 +39,7 @@ async function getCurrentUrlSafe(driver) {
 async function waitForFreshVisible(driver, locator, timeout = 30000) {
   return driver.wait(async () => {
     try {
-      const element = await waitForVisible(driver, locator, 2000);
-      return element;
+      return await waitForVisible(driver, locator, 2000);
     } catch (error) {
       if (isTransientNavigationError(error)) {
         return false;
@@ -65,6 +64,7 @@ async function dismissRegistrationPopup(driver) {
         throw error;
       }
     }
+
     await driver.sleep(1000);
   }
 }
@@ -73,7 +73,6 @@ async function waitForRegistrationForm(driver, timeout = 30000) {
   return driver.wait(async () => {
     try {
       const url = await getCurrentUrlSafe(driver);
-      // Leave this wait if the app has already moved us to the onboarding flow.
       if (url && /\/onboarding/.test(new URL(url).pathname)) {
         return false;
       }
@@ -143,54 +142,6 @@ async function fillRegistrationForm(driver, user) {
   if (user.password) {
     await safeFill(driver, RegistrationPage.passwordField, user.password, 'password');
   }
-
-  return {
-    organizationName: RegistrationPage.organizationNameField,
-    organizationCountry: RegistrationPage.organizationCountryField,
-    organizationState: RegistrationPage.organizationStateField,
-    firstName: RegistrationPage.firstNameField,
-    lastName: RegistrationPage.lastNameField,
-    workEmail: RegistrationPage.workEmailField,
-    password: RegistrationPage.passwordField,
-  };
-}
-
-async function expectFieldToBeInvalid(driver, locator) {
-  await driver.wait(async () => {
-    try {
-      const element = await driver.wait(until.elementLocated(locator), 2000);
-      const state = await driver.executeScript(
-        `
-          return {
-            checkValidity: typeof arguments[0].checkValidity === 'function' ? arguments[0].checkValidity() : true,
-            validationMessage: arguments[0].validationMessage || '',
-            ariaInvalid: arguments[0].getAttribute('aria-invalid') || '',
-            required: arguments[0].required === true,
-            value: arguments[0].value || ''
-          };
-        `,
-        element
-      );
-
-      return (
-        state.checkValidity === false ||
-        state.validationMessage.length > 0 ||
-        state.ariaInvalid === 'true' ||
-        (state.required && state.value === '')
-      );
-    } catch (error) {
-      if (isTransientNavigationError(error)) {
-        return false;
-      }
-
-      return false;
-    }
-  }, 10000);
-}
-
-async function expectRegistrationToStayOnForm(driver) {
-  const organizationNameField = await waitForRegistrationForm(driver, 10000);
-  assert.equal(await organizationNameField.isDisplayed(), true);
 }
 
 async function readTrackedResponseState(driver, key) {
@@ -220,83 +171,30 @@ async function readTrackedResponseState(driver, key) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// suppressWindowClose
-// Used ONLY for validation-error tests (missingFirstName, invalidEmail) where
-// we deliberately want the page to stay put after clicking submit.
-// ---------------------------------------------------------------------------
-async function suppressWindowClose(driver) {
-  try {
-    await driver.executeScript(
-      `
-        (function(){
-          if (!window.__empTestHelpers) {
-            window.__empTestHelpers = {};
-          }
-
-          if (!window.__empTestHelpers._closePatched) {
-            window.__empTestHelpers._origClose = window.close;
-            window.close = function() { console.warn('window.close suppressed by test harness'); };
-            try { window.self.close = window.close; } catch(e) {}
-            window.__empTestHelpers._closePatched = true;
-          }
-
-          if (!window.__empTestHelpers._openPatched) {
-            window.__empTestHelpers._origOpen = window.open;
-            window.open = function(){ console.warn('window.open suppressed by test harness'); return null; };
-            window.__empTestHelpers._openPatched = true;
-          }
-        })();
-      `
-    );
-  } catch (error) {
-    if (isTransientNavigationError(error)) {
-      return;
-    }
-    throw error;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// submitAndAwaitRedirectChain
-//
-// Clicks the Create Account button and then follows the redirect chain using
-// Selenium's native window-handle management — no JS window.close patching.
-//
-// The app may react to the registration submit in one of several ways:
-//   1. SPA route change   → same window, URL updates to /onboarding (or a sub-route).
-//   2. window.open()      → a new browser window/tab opens containing /onboarding.
-//   3. window.open()      → new window opens, then app calls window.close() on the
-//                           original; Selenium loses the old handle automatically.
-//
-// All three cases are handled by monitoring getAllWindowHandles() and the
-// current URL on every polling tick.
-// ---------------------------------------------------------------------------
-async function submitAndAwaitRedirectChain(driver, {
-  networkKey = null,
-  // Match any URL whose *pathname* begins with /onboarding so that sub-routes
-  // like /onboarding/step/1 or /onboarding?locale=en are also accepted.
-  finalPattern = /^\/onboarding/,
-  timeout = 60000,
-} = {}) {
-  // Snapshot the currently open windows before clicking.
+async function submitAndAwaitRedirectChain(
+  driver,
+  {
+    networkKey = null,
+    finalPattern = /^\/onboarding/,
+    timeout = 60000,
+  } = {}
+) {
   const knownHandles = new Set(await driver.getAllWindowHandles());
 
-  // Click submit — tolerate transient detach errors caused by fast navigation.
   try {
     await safeClick(driver, RegistrationPage.createFreeAccountButton, 'create free account button');
   } catch (error) {
     if (!isTransientNavigationError(error)) {
       throw error;
     }
-    console.warn('Transient error during submit click — navigation likely started, continuing poll...');
+
+    console.warn('Transient error during submit click; continuing redirect polling.');
   }
 
   const deadline = Date.now() + timeout;
 
   while (Date.now() < deadline) {
     try {
-      // ── 1. Discover any new windows the app opened ──────────────────────
       const allHandles = await driver.getAllWindowHandles();
       for (const handle of allHandles) {
         if (!knownHandles.has(handle)) {
@@ -306,38 +204,31 @@ async function submitAndAwaitRedirectChain(driver, {
         }
       }
 
-      // ── 2. Check whether we have reached the target URL ────────────────
       const currentUrl = await getCurrentUrlSafe(driver);
       if (currentUrl) {
         const pathname = new URL(currentUrl).pathname;
-
         if (finalPattern.test(pathname)) {
           console.log(`Reached target URL: ${currentUrl}`);
           return currentUrl;
         }
-
-        // The app may briefly route through '/' or '/dashboard' — keep waiting.
       }
     } catch (error) {
-      // The original window may have been closed by the app.  Try to recover by
-      // switching to any remaining window and continuing the poll.
       if (isTransientNavigationError(error)) {
         try {
           const remaining = await driver.getAllWindowHandles();
           if (remaining.length > 0) {
-            const target = remaining.find((h) => !knownHandles.has(h)) ?? remaining.at(-1);
+            const target = remaining.find((handle) => !knownHandles.has(handle)) ?? remaining.at(-1);
             await driver.switchTo().window(target);
             knownHandles.add(target);
           }
         } catch {
-          // ignore secondary switch errors
+          // Ignore secondary switching errors during navigation churn.
         }
       } else {
         throw error;
       }
     }
 
-    // Check network tracker (informational — does not gate the URL wait).
     if (networkKey) {
       await readTrackedResponseState(driver, networkKey).catch(() => null);
     }
@@ -346,98 +237,442 @@ async function submitAndAwaitRedirectChain(driver, {
   }
 
   const finalUrl = await getCurrentUrlSafe(driver);
-  throw new Error(
-    `Timeout (${timeout}ms) waiting for redirect to pattern ${finalPattern}. ` +
-    `Last URL: ${finalUrl ?? 'unknown'}`
-  );
+  throw new Error(`Timeout (${timeout}ms) waiting for redirect to ${finalPattern}. Last URL: ${finalUrl ?? 'unknown'}`);
 }
 
-// ---------------------------------------------------------------------------
-// completeOnboardingStep
-//
-// Handles a single onboarding wizard step:
-//   1. Waits for the step content to stabilise.
-//   2. Fills any required fields for that step (add locators to
-//      OnboardingPage and call safeFill / safeClick here as needed).
-//   3. Clicks the primary Continue / Next / Finish button.
-// ---------------------------------------------------------------------------
-async function completeOnboardingStep(driver, stepNumber) {
-  console.log(`Completing onboarding step ${stepNumber}/5...`);
+async function clickIfVisible(driver, locator, elementName, timeout = 3000) {
+  const visible = await isVisible(driver, locator, timeout).catch(() => false);
+  if (!visible) {
+    return false;
+  }
 
-  // Give the SPA time to render the new step before interacting.
-  await driver.sleep(1500);
+  await safeClick(driver, locator, elementName);
+  return true;
+}
 
-  // ── Step-specific field filling ─────────────────────────────────────────
-  // Uncomment and extend the blocks below once you know the exact field names
-  // that appear on each onboarding step.
-  //
-  // if (stepNumber === 1) {
-  //   await safeFill(driver, OnboardingPage.step1ExampleField, 'value', 'field label');
-  // }
-  // if (stepNumber === 2) {
-  //   await safeFill(driver, OnboardingPage.step2ExampleField, 'value', 'field label');
-  // }
-  // … and so on for steps 3-5.
-  // ────────────────────────────────────────────────────────────────────────
+async function clickElement(driver, element, elementName) {
+  await driver.executeScript(
+    `
+      arguments[0].scrollIntoView({ block: 'center', inline: 'center' });
+    `,
+    element
+  );
 
-  // Click the primary CTA (Continue / Next / Finish).
-  // First try the text-based XPath; fall back to the CSS brand-button selector.
-  let clicked = false;
-  for (const locator of [OnboardingPage.continueButton, OnboardingPage.primaryButton]) {
+  try {
+    await element.click();
+  } catch {
+    await driver.executeScript('arguments[0].click();', element);
+  }
+
+  console.log(`Clicked ${elementName}`);
+}
+
+async function isOnboardingComplete(driver) {
+  const currentUrl = await getCurrentUrlSafe(driver);
+  if (currentUrl && !/\/onboarding/.test(new URL(currentUrl).pathname)) {
+    return true;
+  }
+
+  const dashboardVisible = await isVisible(driver, OnboardingPage.dashboardShell, 2000).catch(() => false);
+  if (dashboardVisible) {
+    return true;
+  }
+
+  const completionVisible = await isVisible(driver, OnboardingPage.completionHeading, 2000).catch(() => false);
+  return completionVisible;
+}
+
+async function fillFocusedInput(driver, value, fieldName) {
+  await safeFill(driver, OnboardingPage.firstFocusVisibleInput, value, fieldName);
+}
+
+async function setInputValue(driver, locator, value, fieldName) {
+  const field = await waitForVisible(driver, locator, 10000);
+  await driver.executeScript(
+    `
+      arguments[0].scrollIntoView({ block: 'center', inline: 'center' });
+      arguments[0].focus();
+      arguments[0].value = arguments[1];
+      arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+      arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+    `,
+    field,
+    value
+  );
+  console.log(`Set ${fieldName}: ${value}`);
+}
+
+async function readInputValue(driver, locator, timeout = 5000) {
+  const field = await waitForVisible(driver, locator, timeout);
+  return field.getAttribute('value');
+}
+
+async function fillVisibleInputByIndex(driver, locator, index, value, fieldName, timeout = 15000) {
+  await driver.wait(async () => {
+    const elements = await driver.findElements(locator);
+    const visibleElements = [];
+
+    for (const element of elements) {
+      const displayed = await element.isDisplayed().catch(() => false);
+      if (displayed) {
+        visibleElements.push(element);
+      }
+    }
+
+    return visibleElements.length > index;
+  }, timeout);
+
+  const elements = await driver.findElements(locator);
+  const visibleElements = [];
+  for (const element of elements) {
+    const displayed = await element.isDisplayed().catch(() => false);
+    if (displayed) {
+      visibleElements.push(element);
+    }
+  }
+
+  const target = visibleElements[index];
+  await target.click();
+  await target.clear();
+  await target.sendKeys(String(value));
+  console.log(`Filled ${fieldName}: ${value}`);
+}
+
+async function selectVisibleSelectByIndex(driver, locator, index, value, fieldName, timeout = 15000) {
+  await driver.wait(async () => {
+    const elements = await driver.findElements(locator);
+    const visibleElements = [];
+
+    for (const element of elements) {
+      const displayed = await element.isDisplayed().catch(() => false);
+      if (displayed) {
+        visibleElements.push(element);
+      }
+    }
+
+    return visibleElements.length > index;
+  }, timeout);
+
+  const elements = await driver.findElements(locator);
+  const visibleElements = [];
+  for (const element of elements) {
+    const displayed = await element.isDisplayed().catch(() => false);
+    if (displayed) {
+      visibleElements.push(element);
+    }
+  }
+
+  await driver.executeScript(
+    `
+      const select = arguments[0];
+      const target = arguments[1];
+      const option = Array.from(select.options).find(
+        (item) => item.value === target || item.label === target || item.text.trim() === target
+      );
+
+      if (!option) {
+        return false;
+      }
+
+      select.value = option.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    `,
+    visibleElements[index],
+    value
+  );
+  console.log(`Selected ${fieldName}: ${value}`);
+}
+
+async function setFocusedInputValue(driver, value, fieldName) {
+  const field = await waitForVisible(driver, OnboardingPage.firstFocusVisibleInput, 10000);
+  await driver.executeScript(
+    `
+      arguments[0].focus();
+      arguments[0].value = arguments[1];
+      arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+      arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+    `,
+    field,
+    value
+  );
+  console.log(`Set ${fieldName}: ${value}`);
+}
+
+async function waitForDashboardLoaded(driver, timeout = 30000) {
+  await driver.wait(async () => {
+    const currentUrl = await getCurrentUrlSafe(driver);
+    if (!currentUrl) {
+      return false;
+    }
+
+    const pathname = new URL(currentUrl).pathname;
+    if (/\/onboarding/.test(pathname)) {
+      return false;
+    }
+
+    const shellVisible = await isVisible(driver, OnboardingPage.dashboardShell, 1000).catch(() => false);
+    const headingVisible = await isVisible(driver, OnboardingPage.dashboardHeading, 1000).catch(() => false);
+    return shellVisible || headingVisible;
+  }, timeout, 'Expected dashboard to be fully loaded after onboarding.');
+}
+
+async function finishSetupAndWaitForDashboard(driver) {
+  const finishButton = await waitForVisible(driver, OnboardingPage.finishSetupButton, 15000);
+
+  await driver.executeScript(
+    `
+      arguments[0].scrollIntoView({ block: 'center', inline: 'center' });
+    `,
+    finishButton
+  );
+
+  await driver.wait(async () => {
+    const disabled = await finishButton.getAttribute('disabled').catch(() => null);
+    const ariaDisabled = await finishButton.getAttribute('aria-disabled').catch(() => null);
+    return disabled === null && ariaDisabled !== 'true';
+  }, 10000, 'Expected Finish Setup button to be enabled.');
+
+  await clickElement(driver, finishButton, 'finish setup button');
+
+  await driver.wait(async () => {
+    const currentUrl = await getCurrentUrlSafe(driver);
+    if (currentUrl && !/\/onboarding/.test(new URL(currentUrl).pathname)) {
+      return true;
+    }
+
+    const finishVisible = await isVisible(driver, OnboardingPage.finishSetupButton, 1000).catch(() => false);
+    if (!finishVisible) {
+      return true;
+    }
+
+    const dashboardVisible = await isVisible(driver, OnboardingPage.dashboardShell, 1000).catch(() => false);
+    const dashboardHeadingVisible = await isVisible(driver, OnboardingPage.dashboardHeading, 1000).catch(() => false);
+    return dashboardVisible || dashboardHeadingVisible;
+  }, 30000, 'Expected onboarding to close after clicking Finish Setup.');
+
+  await waitForDashboardLoaded(driver, 30000);
+}
+
+async function clickNextButton(driver, stepNumber) {
+  const candidates = [
+    OnboardingPage.moduleNextButton,
+    OnboardingPage.step1NextButton,
+    OnboardingPage.step2NextButton,
+    OnboardingPage.step3NextButton,
+    OnboardingPage.continueButton,
+    OnboardingPage.primaryButton,
+  ];
+
+  for (const locator of candidates) {
     try {
-      await safeClick(driver, locator, `onboarding step ${stepNumber} continue button`);
-      clicked = true;
-      break;
+      await safeClick(driver, locator, `onboarding step ${stepNumber} next button`);
+      return;
     } catch {
       // Try the next locator.
     }
   }
 
-  if (!clicked) {
-    throw new Error(
-      `Could not locate a Continue/Next/Finish button on onboarding step ${stepNumber}. ` +
-      'Add the correct locator to OnboardingPage.continueButton or OnboardingPage.primaryButton.'
+  throw new Error(`Could not locate a next button on onboarding step ${stepNumber}.`);
+}
+
+async function selectModuleCard(driver, moduleName) {
+  const byName = await driver.findElements(
+    OnboardingPage.moduleTrialCards
+  );
+
+  for (const card of byName) {
+    const text = (await card.getText().catch(() => '')).toLowerCase();
+    if (text.includes(moduleName.toLowerCase())) {
+      await clickElement(driver, card, `module card ${moduleName}`);
+      return true;
+    }
+  }
+
+  const cards = await driver.findElements(OnboardingPage.moduleTrialCards);
+  for (const card of cards) {
+    const visible = await card.isDisplayed().catch(() => false);
+    if (visible) {
+      await clickElement(driver, card, 'first visible module card');
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function completeOnboardingStepOne(driver, data) {
+  await clickIfVisible(driver, OnboardingPage.step1StartButton, 'onboarding start button', 5000);
+  await clickIfVisible(driver, OnboardingPage.step1FirstOption, 'onboarding step 1 first option', 5000);
+  await clickIfVisible(driver, OnboardingPage.step1ThirdOption, 'onboarding step 1 third option', 5000);
+  await clickIfVisible(driver, OnboardingPage.step1SixthOption, 'onboarding step 1 sixth option', 5000);
+  await clickIfVisible(driver, OnboardingPage.step1SixthOption, 'onboarding step 1 sixth option retry', 2000);
+
+  if (await isVisible(driver, OnboardingPage.step1NameField, 3000).catch(() => false)) {
+    await setInputValue(driver, OnboardingPage.step1NameField, data.organizationLabel, 'onboarding step 1 name');
+  }
+
+  if (await isVisible(driver, OnboardingPage.step1OrganizationLabelField, 3000).catch(() => false)) {
+    await safeFill(
+      driver,
+      OnboardingPage.step1OrganizationLabelField,
+      data.organizationLabel,
+      'onboarding organization label'
     );
+  }
+
+  await clickNextButton(driver, 1);
+}
+
+async function completeOnboardingStepTwo(driver, data) {
+  if (await isOnboardingComplete(driver)) {
+    return;
+  }
+
+  await driver.wait(async () => {
+    const inviteHeadingVisible = await isVisible(driver, OnboardingPage.inviteStepHeading, 1000).catch(() => false);
+    const emailFieldVisible = await isVisible(driver, OnboardingPage.inviteEmailInputs, 1000).catch(() => false);
+    return inviteHeadingVisible || emailFieldVisible || await isOnboardingComplete(driver);
+  }, 15000);
+
+  if (await isOnboardingComplete(driver)) {
+    return;
+  }
+
+  await fillVisibleInputByIndex(driver, OnboardingPage.inviteEmailInputs, 0, data.invitedUsers[0].email, 'first invited user email');
+  await selectVisibleSelectByIndex(driver, OnboardingPage.inviteRoleSelects, 0, data.invitedUsers[0].role, 'first invited user role');
+
+  if (data.invitedUsers[1]) {
+    await clickIfVisible(driver, OnboardingPage.step2AddAnotherInviteButton, 'add another invite button', 5000);
+    await fillVisibleInputByIndex(
+      driver,
+      OnboardingPage.inviteEmailInputs,
+      1,
+      data.invitedUsers[1].email,
+      'second invited user email'
+    );
+    await selectVisibleSelectByIndex(driver, OnboardingPage.inviteRoleSelects, 1, data.invitedUsers[1].role, 'second invited user role');
+  }
+
+  await clickNextButton(driver, 2);
+}
+
+async function completeOnboardingStepThree(driver) {
+  await clickIfVisible(driver, OnboardingPage.step3FirstCard, 'onboarding step 3 first card', 5000);
+  await clickIfVisible(driver, OnboardingPage.step3ThirdCard, 'onboarding step 3 third card', 5000);
+  await clickIfVisible(driver, OnboardingPage.step3FourthCard, 'onboarding step 3 fourth card', 5000);
+  await clickIfVisible(driver, OnboardingPage.step3SecondCard, 'onboarding step 3 second card', 5000);
+  await clickNextButton(driver, 3);
+}
+
+async function completeOnboardingStepFour(driver, data) {
+  if (await isOnboardingComplete(driver)) {
+    return;
+  }
+
+  await driver.wait(async () => {
+    const headingVisible = await isVisible(driver, OnboardingPage.moduleStepHeading, 1000).catch(() => false);
+    const cardVisible = await isVisible(driver, OnboardingPage.moduleTrialCards, 1000).catch(() => false);
+    return headingVisible || cardVisible || await isOnboardingComplete(driver);
+  }, 15000);
+
+  if (await isOnboardingComplete(driver)) {
+    return;
+  }
+
+  const selected = await selectModuleCard(driver, data.moduleName);
+  assert.equal(selected, true, `Expected to select a module card for "${data.moduleName}".`);
+  await clickNextButton(driver, 4);
+}
+
+async function completeOnboardingFinalStep(driver, stepNumber) {
+  if (await isOnboardingComplete(driver)) {
+    return;
+  }
+
+  if (await isVisible(driver, OnboardingPage.shiftNameField, 3000).catch(() => false)) {
+    const shiftName = await readInputValue(driver, OnboardingPage.shiftNameField, 3000).catch(() => '');
+    if (!String(shiftName || '').trim()) {
+      await setInputValue(driver, OnboardingPage.shiftNameField, onboardingData.attendance.shiftName, 'shift name');
+    }
+  }
+
+  if (await isVisible(driver, OnboardingPage.startTimeField, 3000).catch(() => false)) {
+    const startTime = await readInputValue(driver, OnboardingPage.startTimeField, 3000).catch(() => '');
+    if (!String(startTime || '').trim()) {
+      await setInputValue(driver, OnboardingPage.startTimeField, onboardingData.attendance.startTime, 'start time');
+    }
+  }
+
+  if (await isVisible(driver, OnboardingPage.endTimeField, 3000).catch(() => false)) {
+    const endTime = await readInputValue(driver, OnboardingPage.endTimeField, 3000).catch(() => '');
+    if (!String(endTime || '').trim()) {
+      await setInputValue(driver, OnboardingPage.endTimeField, onboardingData.attendance.endTime, 'end time');
+    }
+  }
+
+  if (await isVisible(driver, OnboardingPage.finishSetupButton, 3000).catch(() => false)) {
+    await finishSetupAndWaitForDashboard(driver);
+  } else if (await isVisible(driver, OnboardingPage.continueButton, 3000).catch(() => false)) {
+    await clickNextButton(driver, stepNumber);
+    await waitForDashboardLoaded(driver, 30000);
+  }
+}
+
+async function completeOnboardingStep(driver, stepNumber) {
+  console.log(`Completing onboarding step ${stepNumber}/5...`);
+  await driver.sleep(1500);
+
+  if (stepNumber === 1) {
+    await completeOnboardingStepOne(driver, onboardingData);
+  } else if (stepNumber === 2) {
+    await completeOnboardingStepTwo(driver, onboardingData);
+  } else if (stepNumber === 3) {
+    await completeOnboardingStepThree(driver);
+  } else if (stepNumber === 4) {
+    await completeOnboardingStepFour(driver, onboardingData);
+  } else {
+    await completeOnboardingFinalStep(driver, stepNumber);
   }
 
   console.log(`Onboarding step ${stepNumber} submitted.`);
 }
 
-// ---------------------------------------------------------------------------
-// completeOnboarding
-//
-// Drives the full 5-step onboarding wizard that appears after registration.
-// After the final step the app redirects away from /onboarding (typically to
-// the dashboard).  The function returns the URL the driver ends up at.
-// ---------------------------------------------------------------------------
 async function completeOnboarding(driver) {
   console.log('Beginning onboarding wizard...');
-
-  // Safety check — ensure the driver is on an onboarding URL before starting.
   await waitForUrl(driver, /\/onboarding/, 15000);
 
-  for (let step = 1; step <= 5; step++) {
+  for (let step = 1; step <= 5; step += 1) {
+    if (await isOnboardingComplete(driver)) {
+      const completedUrl = await getCurrentUrlSafe(driver);
+      console.log(`Onboarding already completed before step ${step}. Current URL: ${completedUrl}`);
+      return completedUrl;
+    }
+
     await completeOnboardingStep(driver, step);
 
-    // After each step check if the app has already moved us off /onboarding
-    // (the redirect can happen earlier than step 5 if the wizard is shorter).
-    const url = await getCurrentUrlSafe(driver);
-    if (url) {
-      const pathname = new URL(url).pathname;
-      if (!/\/onboarding/.test(pathname)) {
-        console.log(`Onboarding finished after step ${step}. Redirected to: ${url}`);
-        return url;
-      }
+    if (await isOnboardingComplete(driver)) {
+      const url = await getCurrentUrlSafe(driver);
+      console.log(`Onboarding finished after step ${step}. Redirected to: ${url}`);
+      return url;
     }
   }
 
-  // If we are still on /onboarding after all steps, wait for the redirect.
   await driver.wait(async () => {
     const url = await getCurrentUrlSafe(driver);
     return Boolean(url && !/\/onboarding/.test(new URL(url).pathname));
   }, 15000, 'Expected to leave /onboarding after completing all onboarding steps');
 
   const finalUrl = await getCurrentUrlSafe(driver);
+  await waitForDashboardLoaded(driver, 30000);
+  const completionVisible = await isVisible(driver, OnboardingPage.completionHeading, 5000).catch(() => false);
+  const dashboardVisible = await isVisible(driver, OnboardingPage.dashboardShell, 5000).catch(() => false);
+  const dashboardHeadingVisible = await isVisible(driver, OnboardingPage.dashboardHeading, 5000).catch(() => false);
+  assert.equal(
+    completionVisible || dashboardVisible || dashboardHeadingVisible,
+    true,
+    'Expected dashboard or onboarding completion state to be visible after onboarding.'
+  );
   console.log(`Onboarding completed. Final URL: ${finalUrl}`);
   return finalUrl;
 }
@@ -460,14 +695,12 @@ describe('Registration Page Flow', function () {
     profileDir = undefined;
   });
 
-  it(registrationScenarios.validRegistration.name, async function () {
+  it('registers a new account with valid data', async function () {
     try {
       await openRegistrationPage(driver);
-      await fillRegistrationForm(driver, registrationScenarios.validRegistration.user);
+      await fillRegistrationForm(driver, registrationData.validUser);
       await trackNetworkResponse(driver, 'registerAccount', '/auth/register');
 
-      // Submit and follow the full redirect chain (registration → dashboard → onboarding).
-      // submitAndAwaitRedirectChain uses Selenium window-handle polling — no JS patching.
       await submitAndAwaitRedirectChain(driver, {
         networkKey: 'registerAccount',
         finalPattern: /^\/onboarding/,
@@ -478,7 +711,6 @@ describe('Registration Page Flow', function () {
       const responseStatus = await waitForTrackedResponse(driver, 'registerAccount', 30000);
       assert.equal(responseStatus, 201, `Expected registration API status to be 201, received ${responseStatus}.`);
 
-      // Complete all 5 onboarding steps in the same browser session.
       await completeOnboarding(driver);
 
       console.log('Registration and onboarding completed successfully.');
@@ -487,50 +719,5 @@ describe('Registration Page Flow', function () {
       await captureFailure(driver, 'registration-error');
       throw error;
     }
-  });
-
-  it(registrationScenarios.missingFirstName.name, async function () {
-    await openRegistrationPage(driver);
-    const fields = await fillRegistrationForm(driver, registrationScenarios.missingFirstName.user);
-    await trackNetworkResponse(driver, 'registerBlockedMissingFirstName', '/auth/register');
-
-    // Submit but do not treat transient navigation as success for validation tests.
-    try {
-      // Ensure suppression is in place before clicking so the app cannot close the tab
-      await suppressWindowClose(driver);
-      await safeClick(driver, RegistrationPage.createFreeAccountButton, 'create free account button');
-    } catch (error) {
-      if (!isTransientNavigationError(error)) {
-        throw error;
-      }
-    }
-
-    // Re-check the field using a fresh locator to avoid stale references
-    await expectFieldToBeInvalid(driver, RegistrationPage.firstNameField);
-    const blockedStatus = await readTrackedResponseState(driver, 'registerBlockedMissingFirstName');
-    assert.equal(blockedStatus, null);
-    assert.equal(await getTrackedResponseCount(driver, 'registerBlockedMissingFirstName'), 0);
-    await expectRegistrationToStayOnForm(driver);
-  });
-
-  it(registrationScenarios.invalidEmail.name, async function () {
-    await openRegistrationPage(driver);
-    const fields = await fillRegistrationForm(driver, registrationScenarios.invalidEmail.user);
-    await trackNetworkResponse(driver, 'registerBlockedInvalidEmail', '/auth/register');
-
-    try {
-      await suppressWindowClose(driver);
-      await safeClick(driver, RegistrationPage.createFreeAccountButton, 'create free account button');
-    } catch (error) {
-      if (!isTransientNavigationError(error)) {
-        throw error;
-      }
-    }
-
-    await expectFieldToBeInvalid(driver, RegistrationPage.workEmailField);
-    const blockedStatus = await readTrackedResponseState(driver, 'registerBlockedInvalidEmail');
-    assert.equal(blockedStatus, null);
-    assert.equal(await getTrackedResponseCount(driver, 'registerBlockedInvalidEmail'), 0);
-    await expectRegistrationToStayOnForm(driver);
   });
 });

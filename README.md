@@ -8,8 +8,8 @@ Selenium WebDriver end-to-end tests for the EMP Billing application.
 tests/
   data/
     auth-data.js
+    onboarding-data.js
     registration-data.js
-    registration-scenarios.js
   framework/
     auth/
       login.js
@@ -29,6 +29,8 @@ tests/
     auth/
       login.page.js
       registration.page.js
+    onboarding/
+      onboarding.page.js
   specs/
     auth/
       auth.setup.js
@@ -82,7 +84,7 @@ What each command does:
 - `npm test`: runs the login suite, shared authentication setup, and then the registration suite
 - `npm run test:login`: runs the Selenium login scenarios
 - `npm run test:auth-setup`: runs the shared authentication and session setup explicitly
-- `npm run test:registration`: runs the Selenium registration flow
+- `npm run test:registration`: runs the public registration flow and the onboarding/setup flow that follows account creation
 - `npm run test:headed`: runs the authentication and registration flows with the browser visible
 - `npm run test:headless`: runs the authentication and registration flows in headless mode
 
@@ -107,7 +109,7 @@ If Chrome fails to launch from a restricted terminal on Windows, run the same co
 
 - `authentication`: login, one-time authentication, and saved session handling
   Login coverage includes valid login, invalid login, invalid email format validation, password masking, and multi-click protection.
-- `registration`: public registration page coverage with positive and validation scenarios
+- `registration`: public registration flow from account creation through onboarding completion
 
 ## Notes
 
@@ -115,12 +117,15 @@ If Chrome fails to launch from a restricted terminal on Windows, run the same co
 - The repo is wired to run with Selenium WebDriver and Mocha.
 - Authentication credentials are read from environment variables instead of hardcoding them in specs.
 - Registration test data generates unique emails and organization names per run to reduce collisions.
+- Onboarding test data generates unique invite emails per run to reduce collisions.
 - Authentication and registration specs are grouped under `tests/specs/`.
 - Shared browser, session, network, and interaction code lives under `tests/framework/`.
-- Auth-related page objects live under `tests/pages/`.
+- Auth and onboarding page objects live under `tests/pages/`.
 - Authentication runs through `tests/specs/auth/auth.setup.js` first so the saved session handling remains intact.
+- The registration spec currently covers the post-registration onboarding wizard, including module selection and final setup submission.
 
 ## Verification
 
 - The install and run steps above match the current package scripts.
-- In this workspace, Chrome launch verification may still fail under terminal sandbox restrictions on Windows even when the same code works in a normal local shell.
+- `npm run test:registration` was verified successfully in a normal Windows PowerShell session.
+- In this workspace, Chrome launch may fail under restricted/sandboxed terminals on Windows with `DevToolsActivePort file doesn't exist` or `Access is denied`, even when the same command works outside the sandbox.

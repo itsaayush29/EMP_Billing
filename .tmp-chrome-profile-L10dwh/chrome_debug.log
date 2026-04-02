@@ -1,0 +1,4 @@
+[8712:7480:0402/090158.552:WARNING:ui\display\win\screen_win.cc:1008] No displays detected. Waiting for next update.
+[8712:12148:0402/090158.584:FATAL:mojo\public\cpp\platform\platform_channel.cc:108] Check failed: . : Access is denied. (0x5)
+[8712:7480:0402/090158.587:WARNING:ui\display\win\screen_win.cc:1238] Unable to find a primary display. Fallback to fake display:Display[0] bounds=[0,0 1920x1080], workarea=[0,0 1920x1080], scale=1, rotation=0, panel_rotation=0 external not-detected
+[8712:7480:0402/090158.745:WARNING:ui\display\win\screen_win.cc:1238] Unable to find a primary display. Fallback to fake display:Display[0] bounds=[0,0 1920x1080], workarea=[0,0 1920x1080], scale=1, rotation=0, panel_rotation=0 external not-detected

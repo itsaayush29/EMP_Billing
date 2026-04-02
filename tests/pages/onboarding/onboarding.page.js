@@ -1,26 +1,7 @@
 import { By } from 'selenium-webdriver';
-import { textCaseXpath } from '../../framework/support/locators.js';
+import { inputByLabel, textCaseXpath } from '../../framework/support/locators.js';
 
-/**
- * Onboarding page locators.
- *
- * The onboarding wizard lives at /onboarding and progresses through 5 steps
- * without changing the URL path (it is a SPA step-wizard). Each step has a
- * primary "Continue / Next / Get Started / Finish" button that advances to the
- * next step or completes onboarding.
- *
- * If a step contains required fields that must be filled before advancing,
- * add their locators to the corresponding Step section below and call
- * `safeFill` / `safeClick` / `selectFirstAvailableOption` in
- * `completeOnboardingStep()` inside create-account.spec.js.
- */
 export const OnboardingPage = {
-  // ─────────────────────────────────────────────────────────────────────────
-  // Navigation ─ the primary CTA used to advance through every step.
-  // Matches buttons whose visible text contains "continue", "next",
-  // "get started", "finish", or "complete" (case-insensitive) that also
-  // carry the brand colour or are the page's submit button.
-  // ─────────────────────────────────────────────────────────────────────────
   continueButton: By.xpath(
     [
       "//button[",
@@ -35,47 +16,91 @@ export const OnboardingPage = {
       "]",
     ].join('')
   ),
-
-  // Fallback: any .bg-brand-600 button (same style as registration submit).
   primaryButton: By.css('button.bg-brand-600, input[type="submit"].bg-brand-600'),
+  firstFocusVisibleInput: By.css('.focus-visible'),
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Step 1 – (fill in field locators once you know the actual field names)
-  // ─────────────────────────────────────────────────────────────────────────
-  // step1ExampleField: By.name('field_name_here'),
+  // Temporary onboarding selectors mapped from the existing Selenium IDE flow.
+  step1StartButton: By.css('.inline-flex'),
+  step1FirstOption: By.css('.px-4:nth-child(1)'),
+  step1ThirdOption: By.css('.gap-3:nth-child(3)'),
+  step1SixthOption: By.css('.flex:nth-child(6)'),
+  step1OrganizationLabelField: By.css('.px-3'),
+  step1NameField: By.xpath(
+    `${inputByLabel('organization').value} | ${inputByLabel('company').value} | ${inputByLabel('team').value}`
+  ),
+  step1NextButton: By.css('.px-5'),
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Step 2
-  // ─────────────────────────────────────────────────────────────────────────
-  // step2ExampleField: By.name('field_name_here'),
+  inviteEmailInputs: By.css(
+    'input[type="email"], input[name*="email" i], input[placeholder*="email" i], input[placeholder*="mail" i]'
+  ),
+  inviteRoleSelects: By.css('select'),
+  inviteStepHeading: By.xpath(
+    textCaseXpath('invite', 'h1') +
+      ' | ' +
+      textCaseXpath('invite', 'h2') +
+      ' | ' +
+      textCaseXpath('team', 'h1') +
+      ' | ' +
+      textCaseXpath('team', 'h2')
+  ),
+  step2AddAnotherInviteButton: By.css('.hover\\3Atext-brand-700'),
+  step2NextButton: By.css('.gap-2'),
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Step 3
-  // ─────────────────────────────────────────────────────────────────────────
-  // step3ExampleField: By.name('field_name_here'),
+  step3FirstCard: By.css('.flex:nth-child(1) > .flex-1 > .text-gray-500'),
+  step3ThirdCard: By.css('.items-start:nth-child(3)'),
+  step3FourthCard: By.css('.flex:nth-child(4) > .flex-1'),
+  step3SecondCard: By.css('.flex:nth-child(2) > .flex-1 > .text-gray-500'),
+  step3NextButton: By.css('.gap-2'),
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Step 4
-  // ─────────────────────────────────────────────────────────────────────────
-  // step4ExampleField: By.name('field_name_here'),
+  moduleStepHeading: By.xpath(
+    textCaseXpath('module', 'h1') +
+      ' | ' +
+      textCaseXpath('module', 'h2') +
+      ' | ' +
+      textCaseXpath('product', 'h1') +
+      ' | ' +
+      textCaseXpath('product', 'h2')
+  ),
+  moduleTrialCards: By.xpath(
+    "//div[.//*[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '14-day free trial')]]" +
+      " | //button[.//*[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '14-day free trial')]]"
+  ),
+  moduleNextButton: By.xpath(
+    "//button[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'next')]" +
+      " | //button[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue')]"
+  ),
+  finishSetupButton: By.xpath(
+    "//button[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'finish setup')]" +
+      " | //button[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'finish')]"
+  ),
+  shiftNameField: By.xpath(
+    `${inputByLabel('shift name').value} | //label[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'shift name')]/following::input[1]`
+  ),
+  startTimeField: By.xpath(
+    `${inputByLabel('start time').value} | //label[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'start time')]/following::input[1]`
+  ),
+  endTimeField: By.xpath(
+    `${inputByLabel('end time').value} | //label[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'end time')]/following::input[1]`
+  ),
+  finishSetupContainer: By.xpath(
+    "//button[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'finish setup')]/ancestor::*[self::div or self::footer][1]"
+  ),
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Step 5 – final step; after clicking Continue here the user lands on the
-  // dashboard (or equivalent post-onboarding landing page).
-  // ─────────────────────────────────────────────────────────────────────────
-  // step5ExampleField: By.name('field_name_here'),
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Completion indicators
-  // ─────────────────────────────────────────────────────────────────────────
-  // Heading shown on the very last screen / success state (if any).
+  dashboardShell: By.css('aside, nav, [data-testid="sidebar"], [class*="sidebar"]'),
+  dashboardHeading: By.xpath(
+    textCaseXpath('welcome back', 'h1') +
+      ' | ' +
+      textCaseXpath('dashboard', 'h1') +
+      ' | ' +
+      textCaseXpath('dashboard', 'h2')
+  ),
   completionHeading: By.xpath(
     textCaseXpath('congratulations', 'h1') +
-    ' | ' +
-    textCaseXpath('all set', 'h1') +
-    ' | ' +
-    textCaseXpath("you're all set", 'h1') +
-    ' | ' +
-    textCaseXpath('welcome', 'h1')
+      ' | ' +
+      textCaseXpath('all set', 'h1') +
+      ' | ' +
+      textCaseXpath("you're all set", 'h1') +
+      ' | ' +
+      textCaseXpath('welcome', 'h1')
   ),
 };

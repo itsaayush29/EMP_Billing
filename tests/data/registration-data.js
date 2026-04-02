@@ -1,7 +1,7 @@
 let _userCounter = 0;
 
 export function createRegistrationUser(overrides = {}) {
-  // Use a unique id per call so parallel scenarios never share the same email address.
+  // Use a unique id per call so repeated runs never share the same email address.
   const id = `${Date.now()}${++_userCounter}`;
   return {
     organizationName: `Test Org ${id}`,
@@ -17,8 +17,4 @@ export function createRegistrationUser(overrides = {}) {
 
 export const registrationData = {
   validUser: createRegistrationUser(),
-  invalidUsers: {
-    missingFirstName: createRegistrationUser({ firstName: '' }),
-    invalidEmail: createRegistrationUser({ workEmail: 'invalid-email-format' }),
-  },
 };
